@@ -22,7 +22,7 @@ class PluginAutoUpgrade(_PluginBase):
     # 插件描述
     plugin_desc = "定时检测、升级插件。"
     # 插件图标
-    plugin_icon = "PluginAutoUpgrade.png"
+    plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/PluginAutoUpgrade.png"
     # 插件版本
     plugin_version = "2.0"
     # 插件作者

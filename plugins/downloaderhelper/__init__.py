@@ -34,7 +34,7 @@ class DownloaderHelper(_PluginBase):
     # 插件描述
     plugin_desc = "自动标签、自动做种、自动删种。"
     # 插件图标
-    plugin_icon = "DownloaderHelper.png"
+    plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
     plugin_version = "2.8"
     # 插件作者
