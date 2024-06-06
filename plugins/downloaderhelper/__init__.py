@@ -34,9 +34,9 @@ class DownloaderHelper(_PluginBase):
     # 插件描述
     plugin_desc = "自动标签、自动做种、自动删种。"
     # 插件图标
-    plugin_icon = "DownloaderHelper.png"
+    plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "2.8"
+    plugin_version = "2.9"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -1901,8 +1901,7 @@ class DownloaderHelper(_PluginBase):
                 continue
             url = tracker.get("url")
             status = tracker.get("status")
-            tier = tracker.get("tier")
-            if url in self.__public_tracker_urls and status == 0 and tier == -1:
+            if url in self.__public_tracker_urls and status == 0:
                 return True
         return False
 
