@@ -1901,8 +1901,7 @@ class DownloaderHelper(_PluginBase):
                 continue
             url = tracker.get("url")
             status = tracker.get("status")
-            tier = tracker.get("tier")
-            if url in self.__public_tracker_urls and status == 0 and tier == -1:
+            if url in self.__public_tracker_urls and status == 0:
                 return True
         return False
 
