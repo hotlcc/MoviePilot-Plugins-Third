@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "2.9"
+    plugin_version = "3.0"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -49,7 +49,7 @@ class DownloaderHelper(_PluginBase):
     auth_level = 1
 
     # 插件说明链接
-    __help_url = 'https://github.com/jxxghp/MoviePilot-Plugins/tree/main/plugins/downloaderhelper'
+    __help_url = 'https://github.com/hotlcc/MoviePilot-Plugins-Third/tree/main/plugins/downloaderhelper'
 
     # 私有属性
     # 调度器
@@ -89,7 +89,8 @@ class DownloaderHelper(_PluginBase):
     __tracker_mappings_default: Dict[str, str] = {
         'chdbits.xyz': 'ptchdbits.co',
         'agsvpt.trackers.work': 'agsvpt.com',
-        'tracker.cinefiles.info': 'audiences.me'
+        'tracker.cinefiles.info': 'audiences.me',
+        'hhan.club': 'hhanclub.top',
     }
     # 用户配置的tracker映射
     __tracker_mappings: Dict[str, str] = {}
@@ -2140,7 +2141,7 @@ class DownloaderHelper(_PluginBase):
             for add_tag in add_tags:
                 torrent_tags_copy.append(add_tag)
         # 保存标签
-        transmission.set_torrent_tag(hash_str, torrent_tags_copy)
+        transmission.set_torrent_tag(hash_str, sorted(torrent_tags_copy))
         logger.info(f"[TR]单个自动标签成功: hash = {hash_str}, name = {torrent.get('name')}")
         # Flush 标签
         self.__flush_torrent_tags_for_transmission(torrent=torrent, tags=torrent_tags_copy)
