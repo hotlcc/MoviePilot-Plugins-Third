@@ -2140,7 +2140,7 @@ class DownloaderHelper(_PluginBase):
             for add_tag in add_tags:
                 torrent_tags_copy.append(add_tag)
         # 保存标签
-        transmission.set_torrent_tag(hash_str, torrent_tags_copy)
+        transmission.set_torrent_tag(hash_str, sorted(torrent_tags_copy))
         logger.info(f"[TR]单个自动标签成功: hash = {hash_str}, name = {torrent.get('name')}")
         # Flush 标签
         self.__flush_torrent_tags_for_transmission(torrent=torrent, tags=torrent_tags_copy)
