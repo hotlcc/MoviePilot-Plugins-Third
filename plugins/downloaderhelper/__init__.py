@@ -89,7 +89,8 @@ class DownloaderHelper(_PluginBase):
     __tracker_mappings_default: Dict[str, str] = {
         'chdbits.xyz': 'ptchdbits.co',
         'agsvpt.trackers.work': 'agsvpt.com',
-        'tracker.cinefiles.info': 'audiences.me'
+        'tracker.cinefiles.info': 'audiences.me',
+        'hhan.club': 'hhanclub.top',
     }
     # 用户配置的tracker映射
     __tracker_mappings: Dict[str, str] = {}
