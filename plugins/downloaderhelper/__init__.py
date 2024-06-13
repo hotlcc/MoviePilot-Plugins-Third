@@ -49,7 +49,7 @@ class DownloaderHelper(_PluginBase):
     auth_level = 1
 
     # 插件说明链接
-    __help_url = 'https://github.com/jxxghp/MoviePilot-Plugins/tree/main/plugins/downloaderhelper'
+    __help_url = 'https://github.com/hotlcc/MoviePilot-Plugins-Third/tree/main/plugins/downloaderhelper'
 
     # 私有属性
     # 调度器
