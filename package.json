@@ -4,7 +4,7 @@
         "description": "自动标签、自动做种、自动删种。",
         "labels": "下载管理,仪表板",
         "version": "3.0",
-        "icon": "DownloaderHelper.png",
+        "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png",
         "author": "hotlcc",
         "level": 1,
         "history": {
@@ -30,7 +30,7 @@
         "description": "定时检测、升级插件。",
         "labels": "自动更新",
         "version": "2.0",
-        "icon": "PluginAutoUpgrade.png",
+        "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/PluginAutoUpgrade.png",
         "author": "hotlcc",
         "level": 1,
         "history": {
