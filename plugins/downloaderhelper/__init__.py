@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "3.0"
+    plugin_version = "3.1"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -65,6 +65,7 @@ class DownloaderHelper(_PluginBase):
     # 插件缺省配置
     __config_default: Dict[str, Any] = {
         'site_name_priority': True,
+        'not_select_all_tag': '非全',
         'tag_prefix': '站点/',
         'dashboard_widget_size': 12,
         'dashboard_widget_target_downloaders': ['default'],
@@ -417,9 +418,9 @@ class DownloaderHelper(_PluginBase):
                     'content': [{
                         'component': 'VTextField',
                         'props': {
-                            'model': 'exclude_tags',
-                            'label': '排除种子标签',
-                            'hint': '下载器中的种子有这些标签时不进行任何操作，多个标签使用英文“,”分割'
+                            'model': 'not_select_all_tag',
+                            'label': '非全选标签',
+                            'hint': f'种子未全选文件时添加的标签，默认值为“{self.__config_default.get("not_select_all_tag")}”'
                         }
                     }]
                 }, {
@@ -434,7 +435,21 @@ class DownloaderHelper(_PluginBase):
                             'model': 'tag_prefix',
                             'label': '站点标签前缀',
                             'placeholder': '站点/',
-                            'hint': '给种子添加站点标签时的标签前缀，默认值为“站点/”'
+                            'hint': f'给种子添加站点标签时的标签前缀，默认值为“{self.__config_default.get("tag_prefix")}”'
+                        }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VTextField',
+                        'props': {
+                            'model': 'exclude_tags',
+                            'label': '排除种子标签',
+                            'hint': '下载器中的种子有这些标签时不进行任何操作，多个标签使用英文“,”分割'
                         }
                     }]
                 }]
@@ -1854,6 +1869,15 @@ class DownloaderHelper(_PluginBase):
                 if site_tag and site_tag not in torrent_tags and site_tag not in add_tags:
                     add_tags.append(site_tag)
 
+        # 处理非全选标签
+        not_select_all_tag = self.__get_config_item("not_select_all_tag")
+        if not_select_all_tag:
+            select_all_files = self.__check_select_all_files_for_qbittorrent(torrent=torrent)
+            if select_all_files and not_select_all_tag in torrent_tags:
+                remove_tags.append(not_select_all_tag)
+            elif not select_all_files and not_select_all_tag not in torrent_tags:
+                add_tags.append(not_select_all_tag)
+
         if not remove_tags and not add_tags:
             return False
         if remove_tags:
@@ -1905,6 +1929,20 @@ class DownloaderHelper(_PluginBase):
             if url in self.__public_tracker_urls and status == 0:
                 return True
         return False
+
+    def __check_select_all_files_for_qbittorrent(self,
+                                                 torrent: TorrentDictionary) -> bool:
+        """
+        qb检查种子是否全选文件
+        :return: 是否全选文件
+        """
+        if not torrent:
+            return False
+        # 如果选定大小大于等于总大小，认为是全选了文件
+        if torrent.get(TorrentField.SELECT_SIZE.qb) >= torrent.get(TorrentField.TOTAL_SIZE.qb):
+            return True
+        # 否则如果 availability 的值是 -1，认为是全选了文件
+        return torrent.get("availability") == -1
 
     def __delete_batch_for_qbittorrent(self, qbittorrent: Qbittorrent, torrents: List[TorrentDictionary],
                                        context: TaskContext) -> int:
@@ -1991,6 +2029,11 @@ class DownloaderHelper(_PluginBase):
             is_private_field = "isPrivate"
             if is_private_field not in arguments:
                 arguments.append(is_private_field)
+            # 需要 totalSize 和 sizeWhenDone 字段判断是否全选文件
+            if TorrentField.TOTAL_SIZE.tr not in arguments:
+                arguments.append(TorrentField.TOTAL_SIZE.tr)
+            if TorrentField.SELECT_SIZE.tr not in arguments:
+                arguments.append(TorrentField.SELECT_SIZE.tr)
             try:
                 torrents = transmission.trc.get_torrents(arguments=arguments)
             except Exception as e:
@@ -2130,6 +2173,15 @@ class DownloaderHelper(_PluginBase):
                 if site_tag and site_tag not in torrent_tags and site_tag not in add_tags:
                     add_tags.append(site_tag)
 
+        # 处理非全选标签
+        not_select_all_tag = self.__get_config_item("not_select_all_tag")
+        if not_select_all_tag:
+            select_all_files = self.__check_select_all_files_for_transmission(torrent=torrent)
+            if select_all_files and not_select_all_tag in torrent_tags:
+                remove_tags.append(not_select_all_tag)
+            elif not select_all_files and not_select_all_tag not in torrent_tags:
+                add_tags.append(not_select_all_tag)
+
         # 如果没有变化就不继续保存
         if not remove_tags and not add_tags:
             return False
@@ -2141,7 +2193,8 @@ class DownloaderHelper(_PluginBase):
             for add_tag in add_tags:
                 torrent_tags_copy.append(add_tag)
         # 保存标签
-        transmission.set_torrent_tag(hash_str, sorted(torrent_tags_copy))
+        torrent_tags_copy = sorted(torrent_tags_copy)
+        transmission.set_torrent_tag(hash_str, torrent_tags_copy)
         logger.info(f"[TR]单个自动标签成功: hash = {hash_str}, name = {torrent.get('name')}")
         # Flush 标签
         self.__flush_torrent_tags_for_transmission(torrent=torrent, tags=torrent_tags_copy)
@@ -2165,6 +2218,17 @@ class DownloaderHelper(_PluginBase):
         :return: 是否是私有种子
         """
         return torrent.get("isPrivate")
+
+    def __check_select_all_files_for_transmission(self,
+                                                  torrent: Torrent) -> bool:
+        """
+        tr检查种子是否全选文件
+        :return: 是否全选文件
+        """
+        if not torrent:
+            return False
+        # 如果选定大小大于等于总大小，认为是全选了文件
+        return torrent.get(TorrentField.SELECT_SIZE.tr) >= torrent.get(TorrentField.TOTAL_SIZE.tr)
 
     def __delete_batch_for_transmission(self, transmission: Transmission, torrents: List[Torrent],
                                         context: TaskContext) -> int:
