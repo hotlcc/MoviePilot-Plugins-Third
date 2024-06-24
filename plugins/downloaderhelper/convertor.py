@@ -198,7 +198,7 @@ class TagsConvertor(IConvertor, metaclass=Singleton):
         if not data:
             return None
         try:
-            if isinstance(data, list):
+            if isinstance(data, list) or isinstance(data, set):
                 return ', '.join(data)
             return data
         except Exception as e:
