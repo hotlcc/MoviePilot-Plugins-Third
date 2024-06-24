@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "3.2"
+    plugin_version = "3.3"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -1914,7 +1914,7 @@ class DownloaderHelper(_PluginBase):
             if add_tags:
                 for add_tag in add_tags:
                     if add_tag and add_tag not in torrent_tags:
-                        torrent_tags.add(add_tag)
+                        torrent_tags.append(add_tag)
             tag_str = ', '.join(torrent_tags)
             torrent.update({'tags': tag_str})
         except Exception as e:
