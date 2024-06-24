@@ -3,11 +3,12 @@
         "name": "下载器助手",
         "description": "自动标签、自动做种、自动删种。",
         "labels": "下载管理,仪表板",
-        "version": "3.1",
+        "version": "3.2",
         "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png",
         "author": "hotlcc",
         "level": 1,
         "history": {
+            "v3.2": "优化任务日志。",
             "v3.1": "自动标签新增支持【未全选标签】（种子未全选文件时添加的标签），默认值为“非全”，可用于排除自动辅种。",
             "v3.0": "一些无关痛痒的优化。",
             "v2.9": "修复在qb客户端v4.3.9中BT/PT识别错误的问题。",
