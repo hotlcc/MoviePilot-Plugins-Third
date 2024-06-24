@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "3.3"
+    plugin_version = "3.3.1"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -1433,7 +1433,10 @@ class DownloaderHelper(_PluginBase):
             if not match:
                 return False, None
             # 如果匹配的种子数据路径不存在，说明数据文件已经（全部）被删除了，那么就允许删种
-            return True, "源文件删除事件" if not os.path.exists(torrent_data_path) else False, None
+            if not os.path.exists(torrent_data_path):
+                return True, "源文件删除事件"
+            else:
+                return False, None
         # 下载任务删除事件触发
         elif download_deleted_event_data:
             torrent_info = download_deleted_event_data
@@ -1441,7 +1444,10 @@ class DownloaderHelper(_PluginBase):
                                                            torrent_data_file_name=torrent.get('name'),
                                                            torrent_size=torrent.get('total_size'),
                                                            torrent_info=torrent_info)
-            return True, "下载任务删除事件" if match else False, None
+            if match:
+                return True, "下载任务删除事件"
+            else:
+                return False, None
         return False, None
 
     @classmethod
@@ -1470,7 +1476,10 @@ class DownloaderHelper(_PluginBase):
             if not match:
                 return False, None
             # 如果匹配的种子数据路径不存在，说明数据文件已经（全部）被删除了，那么就允许删种
-            return True, "源文件删除事件" if not os.path.exists(torrent_data_path) else False, None
+            if not os.path.exists(torrent_data_path):
+                return True, "源文件删除事件"
+            else:
+                return False, None
         # 下载任务删除事件触发
         elif download_deleted_event_data:
             torrent_info = download_deleted_event_data
@@ -1478,7 +1487,10 @@ class DownloaderHelper(_PluginBase):
                                                            torrent_data_file_name=torrent.name,
                                                            torrent_size=torrent.total_size,
                                                            torrent_info=torrent_info)
-            return True, "下载任务删除事件" if match else False, None
+            if match:
+                return True, "下载任务删除事件"
+            else:
+                return False, None
         return False, None
 
     @classmethod
