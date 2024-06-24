@@ -986,12 +986,12 @@ class DownloaderHelper(_PluginBase):
         return mappings
 
     @staticmethod
-    def __split_tags(tags: str = None) -> Set[str]:
+    def __split_tags(tags: str = None) -> List[str]:
         """
-        分割tags字符串为set
+        分割tags字符串为list
         :param tags: tags字符串
         """
-        return set(re.split(r"\s*,\s*", tags.strip())) if tags else set()
+        return re.split(r"\s*,\s*", tags.strip()) if tags else []
 
     def __exists_exclude_tag(self, tags=None) -> bool:
         """
