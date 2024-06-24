@@ -1408,17 +1408,17 @@ class DownloaderHelper(_PluginBase):
         return site_tag, delete_suggest
 
     @classmethod
-    def __check_need_delete_for_qbittorrent(cls, torrent: TorrentDictionary, context: TaskContext) -> bool:
+    def __check_need_delete_for_qbittorrent(cls, torrent: TorrentDictionary, context: TaskContext) -> Tuple[bool, str]:
         """
         检查qb种子是否满足删除条件
         :param context: 任务上下文
         """
         if not torrent or not context:
-            return False
+            return False, None
 
         # 根据种子状态判断是否应该删种：状态为丢失文件时需要删除
         if torrent.get('state') == 'missingFiles':
-            return True
+            return True, "丢失文件"
 
         # 源文件删除事件数据
         download_file_deleted_event_data = context.get_download_file_deleted_event_data()
@@ -1431,9 +1431,9 @@ class DownloaderHelper(_PluginBase):
             match, torrent_data_path = cls.__check_torrent_match_file_for_qbittorrent(torrent=torrent,
                                                                                       source_file_info=download_file_deleted_event_data)
             if not match:
-                return False
+                return False, None
             # 如果匹配的种子数据路径不存在，说明数据文件已经（全部）被删除了，那么就允许删种
-            return not os.path.exists(torrent_data_path)
+            return True, "源文件删除事件" if not os.path.exists(torrent_data_path) else False, None
         # 下载任务删除事件触发
         elif download_deleted_event_data:
             torrent_info = download_deleted_event_data
@@ -1441,21 +1441,21 @@ class DownloaderHelper(_PluginBase):
                                                            torrent_data_file_name=torrent.get('name'),
                                                            torrent_size=torrent.get('total_size'),
                                                            torrent_info=torrent_info)
-            return match
-        return False
+            return True, "下载任务删除事件" if match else False, None
+        return False, None
 
     @classmethod
-    def __check_need_delete_for_transmission(cls, torrent: Torrent, context: TaskContext) -> bool:
+    def __check_need_delete_for_transmission(cls, torrent: Torrent, context: TaskContext) -> Tuple[bool, str]:
         """
         检查tr种子是否满足删除条件
         :param deleted_event_data: 任务执行伴随的源文件删除事件数据
         """
         if not torrent or not context:
-            return False
+            return False, None
 
         # 根据种子状态判断是否应该删种：状态为丢失文件时需要删除
         if torrent.error == 3 and torrent.error_string and 'No data found' in torrent.error_string:
-            return True
+            return True, "丢失文件"
 
         # 源文件删除事件数据
         download_file_deleted_event_data = context.get_download_file_deleted_event_data()
@@ -1468,9 +1468,9 @@ class DownloaderHelper(_PluginBase):
             match, torrent_data_path = cls.__check_torrent_match_file_for_transmission(torrent=torrent,
                                                                                        source_file_info=download_file_deleted_event_data)
             if not match:
-                return False
+                return False, None
             # 如果匹配的种子数据路径不存在，说明数据文件已经（全部）被删除了，那么就允许删种
-            return not os.path.exists(torrent_data_path)
+            return True, "源文件删除事件" if not os.path.exists(torrent_data_path) else False, None
         # 下载任务删除事件触发
         elif download_deleted_event_data:
             torrent_info = download_deleted_event_data
@@ -1478,8 +1478,8 @@ class DownloaderHelper(_PluginBase):
                                                            torrent_data_file_name=torrent.name,
                                                            torrent_size=torrent.total_size,
                                                            torrent_info=torrent_info)
-            return match
-        return False
+            return True, "下载任务删除事件" if match else False, None
+        return False, None
 
     @classmethod
     def __check_torrent_match_file_for_qbittorrent(cls, torrent: TorrentDictionary,
@@ -1798,6 +1798,7 @@ class DownloaderHelper(_PluginBase):
         """
         if not torrent:
             return False
+        hash_str = torrent.get('hash')
         # 种子当前已经存在的标签
         torrent_tags = self.__split_tags(torrent.get('tags'))
         # 判断种子中是否存在排除的标签
@@ -1807,7 +1808,10 @@ class DownloaderHelper(_PluginBase):
         if not need_seeding:
             return False
         torrent.resume()
-        logger.info(f"[QB]单个自动做种完成: hash = {torrent.get('hash')}, name = {torrent.get('name')}")
+        # 日志
+        name = self.__extract_torrent_value_for_qbittorrent(torrent=torrent, field=TorrentField.NAME)
+        total_size = self.__extract_torrent_value_for_qbittorrent(torrent=torrent, field=TorrentField.TOTAL_SIZE)
+        logger.info(f"[QB]单个自动做种完成: hash = {hash_str}, name = {name}, size = {total_size}")
         return True
 
     def __tagging_batch_for_qbittorrent(self,
@@ -1842,7 +1846,8 @@ class DownloaderHelper(_PluginBase):
 
         hash_str = torrent.get('hash')
         # 种子当前已经存在的标签
-        torrent_tags = self.__split_tags(torrent.get('tags'))
+        tags = torrent.get('tags')
+        torrent_tags = self.__split_tags(tags)
         # 需要移除的标签
         remove_tags = None
         # 要添加的标签
@@ -1885,9 +1890,13 @@ class DownloaderHelper(_PluginBase):
         # 打标签
         if add_tags:
             torrent.add_tags(tags=add_tags)
-        logger.info(f"[QB]单个自动标签成功: hash = {hash_str}, name = {torrent.get('name')}")
         # Flush 标签
         self.__flush_torrent_tags_for_qbittorrent(torrent=torrent, remove_tags=remove_tags, add_tags=add_tags)
+        # 日志
+        name = self.__extract_torrent_value_for_qbittorrent(torrent=torrent, field=TorrentField.NAME)
+        total_size = self.__extract_torrent_value_for_qbittorrent(torrent=torrent, field=TorrentField.TOTAL_SIZE)
+        after = torrent.get('tags')
+        logger.info(f"[QB]单个自动标签成功: hash = {hash_str}, name = {name}, size = {total_size}, before = {tags}, after = {after}")
         return True
 
     def __flush_torrent_tags_for_qbittorrent(self, torrent: TorrentDictionary, remove_tags: List[str], add_tags: List[str]):
@@ -1972,15 +1981,20 @@ class DownloaderHelper(_PluginBase):
         """
         if not torrent:
             return False
+        hash_str = torrent.get('hash')
         # 种子当前已经存在的标签
         torrent_tags = self.__split_tags(torrent.get('tags'))
         # 判断种子中是否存在排除的标签
         if self.__exists_exclude_tag(torrent_tags):
             return False
-        if not self.__check_need_delete_for_qbittorrent(torrent=torrent, context=context):
+        need_delete, reason = self.__check_need_delete_for_qbittorrent(torrent=torrent, context=context)
+        if not need_delete:
             return False
-        qbittorrent.delete_torrents(True, torrent.get('hash'))
-        logger.info(f"[QB]单个自动删种完成: hash = {torrent.get('hash')}, name = {torrent.get('name')}")
+        qbittorrent.delete_torrents(True, hash_str)
+        # 日志
+        name = self.__extract_torrent_value_for_qbittorrent(torrent=torrent, field=TorrentField.NAME)
+        total_size = self.__extract_torrent_value_for_qbittorrent(torrent=torrent, field=TorrentField.TOTAL_SIZE)
+        logger.info(f"[QB]单个自动删种完成: hash = {hash_str}, name = {name}, size = {total_size}, reason = {reason}")
         return True
 
     def __run_for_transmission(self, context: TaskContext = None) -> TaskContext:
@@ -2106,6 +2120,7 @@ class DownloaderHelper(_PluginBase):
         """
         if not torrent:
             return False
+        hash_str = torrent.hashString
         # 种子当前已经存在的标签
         torrent_tags = torrent.get('labels')
         # 判断种子中是否存在排除的标签
@@ -2114,8 +2129,11 @@ class DownloaderHelper(_PluginBase):
         need_seeding = torrent.progress == 100 and torrent.stopped and torrent.error == 0
         if not need_seeding:
             return False
-        transmission.start_torrents(torrent.hashString)
-        logger.info(f"[TR]单个自动做种完成: hash = {torrent.hashString}, name = {torrent.get('name')}")
+        transmission.start_torrents(ids=hash_str)
+        # 日志
+        name = self.__extract_torrent_value_for_transmission(torrent=torrent, field=TorrentField.NAME)
+        total_size = self.__extract_torrent_value_for_transmission(torrent=torrent, field=TorrentField.TOTAL_SIZE)
+        logger.info(f"[TR]单个自动做种完成: hash = {hash_str}, name = {name}, size = {total_size}")
         return True
 
     def __tagging_batch_for_transmission(self, transmission: Transmission, torrents: List[Torrent]) -> int:
@@ -2195,7 +2213,12 @@ class DownloaderHelper(_PluginBase):
         # 保存标签
         torrent_tags_copy = sorted(torrent_tags_copy)
         transmission.set_torrent_tag(hash_str, torrent_tags_copy)
-        logger.info(f"[TR]单个自动标签成功: hash = {hash_str}, name = {torrent.get('name')}")
+        # 日志
+        name = self.__extract_torrent_value_for_transmission(torrent=torrent, field=TorrentField.NAME)
+        total_size = self.__extract_torrent_value_for_transmission(torrent=torrent, field=TorrentField.TOTAL_SIZE)
+        before = TorrentField.TAGS.convertor.convert(data=torrent_tags)
+        after = TorrentField.TAGS.convertor.convert(data=torrent_tags_copy)
+        logger.info(f"[TR]单个自动标签成功: hash = {hash_str}, name = {name}, size = {total_size}, before = {before}, after = {after}")
         # Flush 标签
         self.__flush_torrent_tags_for_transmission(torrent=torrent, tags=torrent_tags_copy)
         return True
@@ -2258,15 +2281,20 @@ class DownloaderHelper(_PluginBase):
         """
         if not torrent:
             return False
+        hash_str = torrent.hashString
         # 种子当前已经存在的标签
         torrent_tags = torrent.get('labels')
         # 判断种子中是否存在排除的标签
         if self.__exists_exclude_tag(torrent_tags):
             return False
-        if not self.__check_need_delete_for_transmission(torrent=torrent, context=context):
+        need_delete, reason = self.__check_need_delete_for_transmission(torrent=torrent, context=context)
+        if not need_delete:
             return False
-        transmission.delete_torrents(True, torrent.hashString)
-        logger.info(f"'[TR]单个自动删种完成: hash = {torrent.hashString}, name = {torrent.get('name')}")
+        transmission.delete_torrents(True, hash_str)
+        # 日志
+        name = self.__extract_torrent_value_for_transmission(torrent=torrent, field=TorrentField.NAME)
+        total_size = self.__extract_torrent_value_for_transmission(torrent=torrent, field=TorrentField.TOTAL_SIZE)
+        logger.info(f"'[TR]单个自动删种完成: hash = {hash_str}, name = {name}, size = {total_size}, reason = {reason}")
         return True
 
     @staticmethod
