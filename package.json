@@ -57,5 +57,17 @@
         "history": {
             "v1.1": "优化插件配置生效；支持青蛙辅种助手。"
         }
+    },
+    "SystemProcess": {
+        "name": "系统进程",
+        "description": "查看系统进程，支持仪表板",
+        "labels": "系统信息",
+        "version": "1.0",
+        "icon": "Dsfinder_A.png",
+        "author": "hotlcc",
+        "level": 1,
+        "history": {
+            "v1.0": "初始版本。"
+        }
     }
 }
