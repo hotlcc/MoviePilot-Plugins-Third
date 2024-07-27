@@ -28,7 +28,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "1.4"
+    plugin_version = "1.5"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -881,7 +881,7 @@ class MediaCollectHelper(_PluginBase):
             return
         # 执行
         logger.info('转移完成事件监听任务执行开始...')
-        md = MediaDigest(title=mediainfo.title, year=mediainfo.year, tmdb_id=mediainfo.tmdb_id, imdb_id=mediainfo.imdb_id, tvdb_id=mediainfo.tvdb_id)
+        md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, tmdb_id=mediainfo.tmdb_id, imdb_id=mediainfo.imdb_id, tvdb_id=mediainfo.tvdb_id)
         self.__block_run(media_data=[md])
         logger.info('转移完成事件监听任务执行结束')
 
@@ -910,6 +910,6 @@ class MediaCollectHelper(_PluginBase):
             return
         # 执行
         logger.info('订阅已添加事件监听任务执行开始...')
-        md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), tmdb_id=mediainfo.get("tmdb_id"), imdb_id=mediainfo.get("imdb_id"), tvdb_id=mediainfo.get("tvdb_id"))
+        md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=mediainfo.get("type"), tmdb_id=mediainfo.get("tmdb_id"), imdb_id=mediainfo.get("imdb_id"), tvdb_id=mediainfo.get("tvdb_id"))
         self.__block_run(media_data=[md])
         logger.info('订阅已添加事件监听任务执行结束')
