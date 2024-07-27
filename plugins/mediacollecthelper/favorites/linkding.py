@@ -376,7 +376,7 @@ class LinkdingFavorites(Favorites):
                 "Authorization": authorization
             },
             timeout=5
-        ).post_res(url=url, json=bookmark.dict())
+        ).post_res(url=url, json=bookmark.dict(exclude_none=True))
         return self.__linkding_api_check_response(response=response)
 
     def __linkding_api_search_bookmarks(self, base_url: str, token: str, search_str: str) -> Tuple[bool, str, Optional[List[Bookmark]]]:
