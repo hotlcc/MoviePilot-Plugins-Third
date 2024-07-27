@@ -26,7 +26,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件描述
     plugin_desc = "自动收藏MP中的影视信息到其它介质。"
     # 插件图标
-    plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_B.png"
+    plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
     plugin_version = "1.0"
     # 插件作者
