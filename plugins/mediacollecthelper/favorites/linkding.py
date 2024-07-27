@@ -3,7 +3,6 @@ from pydantic import BaseModel
 from requests import Response
 import re
 
-from app.chain.media import MediaChain
 from app.core.context import MediaInfo
 from app.log import logger
 from app.plugins.mediacollecthelper.favorites import Favorites
@@ -410,12 +409,14 @@ class LinkdingFavorites(Favorites):
             if not res_json:
                 break
             results: List[dict] = res_json.get("results")
-            next = res_json.get("next")
-            if not results or not next:
+            if not results:
                 break
             for result in results:
                 if result:
                     bookmarks.append(Bookmark(**result))
+            next = res_json.get("next")
+            if not next:
+                break
         return True, None, bookmarks
 
     def __get_linkding_exists_media_unique_keys(self) -> Set[str]:
@@ -508,18 +509,6 @@ class LinkdingFavorites(Favorites):
             if media:
                 result.append(media)
         return result
-
-    @classmethod
-    def __recognize_media_info(cls, media_data: MediaDigest) -> Optional[MediaInfo]:
-        """
-        识别媒体信息
-        """
-        if not media_data or not media_data.tmdb_id or not media_data.type:
-            return None
-        media_info =  MediaChain().recognize_media(tmdbid=media_data.tmdb_id, mtype=media_data.type)
-        if not media_info:
-            logger.warn(f"{cls.comp_name} - 未识别到媒体信息: tmdb_id = {media_data.tmdb_id}, type = {media_data.type}, title = {media_data.title}, year = {media_data.year}")
-        return media_info
 
     def __build_bookmark_by_media_info(self, media_info: MediaInfo,
                                        generate_notes: bool,
@@ -765,7 +754,7 @@ class LinkdingFavorites(Favorites):
         if not media_data or not media_data.tmdb_id or not media_data.type:
             logger.error(f"{self.comp_name} - 单个影视收藏失败: 影视信息不完整, media_data = {media_data.dict() if media_data else None}")
             return False
-        media_info: Optional[MediaInfo] = self.__recognize_media_info(media_data=media_data)
+        media_info: Optional[MediaInfo] = self.recognize_media_info(media_data=media_data)
         if not media_info:
             logger.error(f"{self.comp_name} - 单个影视收藏失败: 未识别到媒体, title = {media_data.title}, year = {media_data.year}, type = {media_data.type}, tmdb_id = {media_data.tmdb_id}")
             return False

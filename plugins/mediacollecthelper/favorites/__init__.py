@@ -1,9 +1,13 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Dict, Tuple, Optional
+from cachetools import cached, TTLCache
 
+from app.chain.media import MediaChain
+from app.core.context import MediaInfo
 from app.log import logger
 from app.plugins import _PluginBase
 from app.plugins.mediacollecthelper.module import MediaDigest
+from app.schemas.types import MediaType
 
 
 class Favorites(metaclass=ABCMeta):
@@ -136,6 +140,26 @@ class Favorites(metaclass=ABCMeta):
             result.append(md)
             tmdb_ids.add(md.tmdb_id)
         return result
+
+    def recognize_media_info(self, media_data: MediaDigest) -> Optional[MediaInfo]:
+        """
+        识别媒体信息
+        """
+        if not media_data:
+            return None
+        media_info =  self.recognize_media_info_by_tmdb(media_type=media_data.type, tmdb_id=media_data.tmdb_id)
+        if not media_info:
+            logger.warn(f"{self.comp_name} - 未识别到媒体信息: tmdb_id = {media_data.tmdb_id}, type = {media_data.type}, title = {media_data.title}, year = {media_data.year}")
+        return media_info
+
+    @cached(cache=TTLCache(maxsize=10000, ttl=600))
+    def recognize_media_info_by_tmdb(self, media_type: MediaType, tmdb_id: str) -> Optional[MediaInfo]:
+        """
+        根据tmdb识别媒体信息
+        """
+        if not media_type or not tmdb_id:
+            return None
+        return MediaChain().recognize_media(tmdbid=tmdb_id, mtype=media_type)
 
     @abstractmethod
     def init_comp(self):
