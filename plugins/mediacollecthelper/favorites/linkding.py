@@ -390,15 +390,19 @@ class LinkdingFavorites(Favorites):
         if not token:
             return False, "参数错误[token]", None
         authorization = self.__linkding_build_authorization_header(token=token)
-        url = f"{base_url}/api/bookmarks/?q={search_str}&limit=1000&offset=0"
+        url = f"{base_url}/api/bookmarks/"
         bookmarks: List[Bookmark] = []
-        for i in range(10000):
+        for offset in range(10000):
             response = RequestUtils(
                 headers={
                     "Authorization": authorization
                 },
                 timeout=5
-            ).get_res(url=url)
+            ).get_res(url=url, params={
+                "q": search_str,
+                "limit": 1000,
+                "offset": offset
+            })
             success, error_msg = self.__linkding_api_check_response(response=response)
             if not success:
                 return success, error_msg, None
@@ -406,16 +410,12 @@ class LinkdingFavorites(Favorites):
             if not res_json:
                 break
             results: List[dict] = res_json.get("results")
-            if not results:
+            next = res_json.get("next")
+            if not results or not next:
                 break
             for result in results:
-                if not result:
-                    continue
-                bookmarks.append(Bookmark(**result))
-            next = res_json.get("next")
-            if not next:
-                break
-            url = next
+                if result:
+                    bookmarks.append(Bookmark(**result))
         return True, None, bookmarks
 
     def __get_linkding_exists_media_unique_keys(self) -> Set[str]:
