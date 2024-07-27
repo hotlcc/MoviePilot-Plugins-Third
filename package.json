@@ -69,5 +69,17 @@
         "history": {
             "v1.0": "初始版本。"
         }
+    },
+    "MediaCollectHelper": {
+        "name": "影视收藏助手",
+        "description": "自动收藏MP中的影视信息到其它介质。",
+        "labels": "媒体工具",
+        "version": "1.0",
+        "icon": "https://github.com/hotlcc/MoviePilot-Plugins-Third/blob/main/icons/Favorites_B.png",
+        "author": "hotlcc",
+        "level": 1,
+        "history": {
+            "v1.0": "初始版本。模块化设计，后期可能考虑增加其它收藏夹模块。"
+        }
     }
 }
