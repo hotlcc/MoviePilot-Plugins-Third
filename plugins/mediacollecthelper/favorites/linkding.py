@@ -352,9 +352,9 @@ class LinkdingFavorites(Favorites):
         检查响应
         """
         if not response:
-            return False, "Linkding接口请求失败"
+            return False, "Linkding接口响应无效"
         if not response.ok:
-            return False, "Linkding接口请求失败"
+            return False, "Linkding接口响应错误"
         return True, None
 
     def __linkding_api_save_bookmark(self, base_url: str, token: str, bookmark: Bookmark) -> Tuple[bool, str]:
@@ -373,11 +373,10 @@ class LinkdingFavorites(Favorites):
         authorization = self.__linkding_build_authorization_header(token=token)
         response = RequestUtils(
             headers={
-                "Authorization": authorization,
-                "Content-Type": "application/json; charset=UTF-8"
+                "Authorization": authorization
             },
             timeout=5
-        ).post_res(url=url, data=bookmark.json())
+        ).post_res(url=url, json=bookmark.dict())
         return self.__linkding_api_check_response(response=response)
 
     def __linkding_api_search_bookmarks(self, base_url: str, token: str, search_str: str) -> Tuple[bool, str, Optional[List[Bookmark]]]:
@@ -697,7 +696,7 @@ class LinkdingFavorites(Favorites):
             tags.update(custom_tags)
         if auto_tags:
             if media_info.type:
-                tags.add(media_info.type)
+                tags.add(media_info.type.value)
             if media_info.category:
                 tags.add(media_info.category)
             if media_info.genres:
