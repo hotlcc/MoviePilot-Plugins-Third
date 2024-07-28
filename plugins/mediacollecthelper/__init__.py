@@ -28,7 +28,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "1.6"
+    plugin_version = "1.7"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -917,24 +917,27 @@ class MediaCollectHelper(_PluginBase):
         监听转移完成事件
         """
         logger.info('监听到转移完成事件')
-        success, mediainfo = self.__check_event_and_get_mediainfo(event=event)
-        if not success:
-            return
-        media_data_sources = self.__get_config_item("media_data_sources")
-        if not media_data_sources or MediaDataSource.MEDIA_LIBRARY.name not in media_data_sources:
-            logger.warn(f"未启用{MediaDataSource.MEDIA_LIBRARY.value}的数据来源，忽略事件")
-            return
-        collect_media_types = self.__get_config_item("collect_media_types")
-        if not collect_media_types or mediainfo.type.name not in collect_media_types:
-            logger.warn(f"未启用{mediainfo.type.value}类型，忽略事件")
-            return
-        if self.__exit_event.is_set():
-            logger.warn('插件服务正在退出，忽略事件')
-            return
-        logger.info('转移完成事件监听任务执行开始...')
-        md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, tmdb_id=mediainfo.tmdb_id, imdb_id=mediainfo.imdb_id, tvdb_id=mediainfo.tvdb_id)
-        self.__block_run(media_data=[md])
-        logger.info('转移完成事件监听任务执行结束')
+        try:
+            success, mediainfo = self.__check_event_and_get_mediainfo(event=event)
+            if not success:
+                return
+            media_data_sources = self.__get_config_item("media_data_sources")
+            if not media_data_sources or MediaDataSource.MEDIA_LIBRARY.name not in media_data_sources:
+                logger.warn(f"未启用{MediaDataSource.MEDIA_LIBRARY.value}的数据来源，忽略事件")
+                return
+            collect_media_types = self.__get_config_item("collect_media_types")
+            if not collect_media_types or mediainfo.type.name not in collect_media_types:
+                logger.warn(f"未启用{mediainfo.type.value}类型，忽略事件")
+                return
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，忽略事件')
+                return
+            logger.info('转移完成事件监听任务执行开始...')
+            md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, tmdb_id=mediainfo.tmdb_id, imdb_id=mediainfo.imdb_id, tvdb_id=mediainfo.tvdb_id)
+            self.__block_run(media_data=[md])
+            logger.info('转移完成事件监听任务执行成功')
+        except Exception as e:
+            logger.error(f'转移完成事件监听任务执行异常: {str(e)}', exc_info=True)
 
     @eventmanager.register(EventType.SubscribeAdded)
     def listen_download_file_deleted_event(self, event: Event = None):
@@ -942,22 +945,26 @@ class MediaCollectHelper(_PluginBase):
         监听订阅已添加事件
         """
         logger.info('监听到订阅已添加事件')
-        success, mediainfo = self.__check_event_and_get_mediainfo(event=event)
-        if not success:
-            return
-        media_data_sources = self.__get_config_item("media_data_sources")
-        if not media_data_sources or MediaDataSource.SUBSCRIBE.name not in media_data_sources:
-            logger.warn(f"未启用{MediaDataSource.SUBSCRIBE.value}的数据来源，忽略事件")
-            return
-        media_type: MediaType = mediainfo.get("type")
-        collect_media_types = self.__get_config_item("collect_media_types")
-        if not collect_media_types or media_type.name not in collect_media_types:
-            logger.warn(f"未启用{media_type.value}类型，忽略事件")
-            return
-        if self.__exit_event.is_set():
-            logger.warn('插件服务正在退出，忽略事件')
-            return
-        logger.info('订阅已添加事件监听任务执行开始...')
-        md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=media_type, tmdb_id=mediainfo.get("tmdb_id"), imdb_id=mediainfo.get("imdb_id"), tvdb_id=mediainfo.get("tvdb_id"))
-        self.__block_run(media_data=[md])
-        logger.info('订阅已添加事件监听任务执行结束')
+        try:
+            success, mediainfo = self.__check_event_and_get_mediainfo(event=event)
+            if not success:
+                return
+            media_data_sources = self.__get_config_item("media_data_sources")
+            if not media_data_sources or MediaDataSource.SUBSCRIBE.name not in media_data_sources:
+                logger.warn(f"未启用{MediaDataSource.SUBSCRIBE.value}的数据来源，忽略事件")
+                return
+            media_type: str = mediainfo.get("type")
+            media_type: MediaType = MediaType(media_type)
+            collect_media_types = self.__get_config_item("collect_media_types")
+            if not collect_media_types or media_type.name not in collect_media_types:
+                logger.warn(f"未启用{media_type.value}类型，忽略事件")
+                return
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，忽略事件')
+                return
+            logger.info('订阅已添加事件监听任务执行开始...')
+            md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=media_type, tmdb_id=mediainfo.get("tmdb_id"), imdb_id=mediainfo.get("imdb_id"), tvdb_id=mediainfo.get("tvdb_id"))
+            self.__block_run(media_data=[md])
+            logger.info('订阅已添加事件监听任务执行成功')
+        except Exception as e:
+            logger.error(f'订阅已添加事件监听任务执行异常: {str(e)}', exc_info=True)
