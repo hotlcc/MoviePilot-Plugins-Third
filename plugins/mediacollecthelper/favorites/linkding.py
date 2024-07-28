@@ -1,4 +1,5 @@
 from typing import Any, List, Dict, Tuple, Set, Optional, Union
+from threading import Event as ThreadEvent
 from pydantic import BaseModel
 from requests import Response
 import re
@@ -34,6 +35,10 @@ class LinkdingFavorites(Favorites):
     comp_key: str = "linkding"
     # 组件名称
     comp_name: str = "Linkding"
+
+    # 私有属性
+    # 退出事件
+    __exit_event: ThreadEvent = ThreadEvent()
 
     # 配置相关
     # 组件缺省配置
@@ -203,6 +208,116 @@ class LinkdingFavorites(Favorites):
         elements = [row1, row2, row3]
         return elements, config_suggest
 
+    def stop_service(self):
+        """
+        停止组件
+        """
+        try:
+            logger.info('尝试停止停止组件...')
+            self.__exit_event.set()
+            logger.info('组件停止完成')
+        except Exception as e:
+            logger.error(f"组件停止异常: {str(e)}", exc_info=True)
+
+    def collect(self, media_data: List[MediaDigest]) -> List[MediaDigest]:
+        """
+        收藏影视
+        """
+        media_data = media_data or []
+        total = len(media_data)
+        # 全量覆盖
+        full_coverage = True if self.__check_full_coverage() else False
+        if not self.__check_config():
+            logger.warn(f"收藏影视前: 配置检查不通过")
+            return
+        logger.info(f"收藏影视前: total = {total}, full_coverage = {full_coverage}")
+        # 记忆阈值
+        memory_threshold = self.get_config_item(config_key="memory_threshold") or 1000
+        # 记忆
+        memory = self.__get_memory()
+        if self.__exit_event.is_set():
+            logger.warn('运行任务中止: 组件正在退出')
+            return []
+        # 全量覆盖时不做历史存在性判断
+        if full_coverage:
+            logger.info(f"收藏影视前: 本次全量覆盖生效")
+            if self.__exit_event.is_set():
+                logger.warn('运行任务中止: 组件正在退出')
+                return []
+            linkding_exists_media_unique_keys = self.__get_linkding_exists_media_unique_keys()
+            logger.info(f"收藏影视前: 检索到Linkding中已有{len(linkding_exists_media_unique_keys)}个收藏")
+            linkding_exists = self.__build_medias_by_unique_keys(unique_keys=linkding_exists_media_unique_keys)
+            media_data = media_data + linkding_exists
+            if self.__exit_event.is_set():
+                logger.warn('运行任务中止: 组件正在退出')
+                return []
+            media_data = self.distinct_media_digests(media_data=media_data)
+            logger.info(f"收藏影视前: 合并本次和已有数据去重后共{len(media_data)}个需要收藏")
+            if self.__exit_event.is_set():
+                logger.warn('运行任务中止: 组件正在退出')
+                return []
+            success_list = self.__collect(media_data=media_data)
+            logger.info(f"收藏影视后: 本次成功收藏{len(success_list)}个")
+            # 如果数量超过阈值就保存记忆
+            if len(success_list) > memory_threshold:
+                success_media_unique_keys = self.__build_media_unique_keys_by_media(media_data=success_list)
+                self.__save_memory(memory=success_media_unique_keys)
+                logger.info(f"收藏影视后: 本次收藏数量超过记忆阈{memory_threshold}，保存了{len(success_media_unique_keys)}个记忆")
+            # 否则如果先前有记忆，就重置记忆
+            elif memory:
+                self.__reset_memory()
+                logger.info(f"收藏影视后: 本次收藏数量未超过记忆阈{memory_threshold}，重置记忆完成")
+            return success_list
+        # 数量少时不做历史存在性判断
+        if total <= 10:
+            logger.info(f"收藏影视前: 本次数量少（不超过10），直接收藏")
+            if self.__exit_event.is_set():
+                logger.warn('运行任务中止: 组件正在退出')
+                return []
+            success_list = self.__collect(media_data=media_data)
+            logger.info(f"收藏影视后: 本次成功收藏{len(success_list)}个")
+            # 如果先前有记忆，本次需要追加记忆
+            if memory:
+                success_media_unique_keys = self.__build_media_unique_keys_by_media(media_data=success_list)
+                self.__add_memory(memory=success_media_unique_keys)
+                logger.info(f"收藏影视后: 追加了{len(success_media_unique_keys)}个记忆")
+            return success_list
+        # 如果先前有记忆，则通过记忆判断是否已经添加
+        if memory:
+            media_data = [mdata for mdata in media_data if mdata and mdata.tmdb_id and self.__build_media_unique_key_by_media(media_data=mdata) not in memory]
+            logger.info(f"收藏影视前: 根据记忆进行存在性过滤后还有{len(media_data)}个需要收藏")
+            if self.__exit_event.is_set():
+                logger.warn('运行任务中止: 组件正在退出')
+                return []
+            success_list = self.__collect(media_data=media_data)
+            logger.info(f"收藏影视后: 本次成功收藏{len(success_list)}个")
+            success_media_unique_keys = self.__build_media_unique_keys_by_media(media_data=success_list)
+            self.__add_memory(memory=set(success_media_unique_keys))
+            logger.info(f"收藏影视后: 追加了{len(success_media_unique_keys)}个记忆")
+            return success_list
+        # 如果先前没有记忆则通过检索linkding判断
+        else:
+            if self.__exit_event.is_set():
+                logger.warn('运行任务中止: 组件正在退出')
+                return []
+            linkding_exists_media_unique_keys = self.__get_linkding_exists_media_unique_keys()
+            logger.info(f"收藏影视前: 检索到Linkding中已有{len(linkding_exists_media_unique_keys)}个收藏")
+            media_data = [mdata for mdata in media_data if mdata and mdata.tmdb_id and self.__build_media_unique_key_by_media(media_data=mdata) not in linkding_exists_media_unique_keys]
+            logger.info(f"收藏影视前: 根据Linkding检索结果进行存在性过滤后还有{len(media_data)}个需要收藏")
+            if self.__exit_event.is_set():
+                logger.warn('运行任务中止: 组件正在退出')
+                return []
+            success_list = self.__collect(media_data=media_data)
+            logger.info(f"收藏影视后: 本次成功收藏{len(success_list)}个")
+            # 如果linkding中总数超过阈值就放到记忆中
+            linkding_count = len(linkding_exists_media_unique_keys) + len(success_list)
+            if linkding_count > memory_threshold:
+                success_media_unique_keys = self.__build_media_unique_keys_by_media(media_data=success_list)
+                init_memory = set(list(success_media_unique_keys) + list(linkding_exists_media_unique_keys))
+                self.__save_memory(memory=init_memory)
+                logger.info(f"收藏影视后: 本次收藏后累计数量超过记忆阈{memory_threshold}，初始化了{len(init_memory)}个记忆")
+            return success_list
+
     def __reset_memory(self):
         """
         重置记忆
@@ -246,81 +361,6 @@ class LinkdingFavorites(Favorites):
             self.update_config(config)
             return True
         return False
-
-    def collect(self, media_data: List[MediaDigest]) -> List[MediaDigest]:
-        """
-        收藏影视
-        """
-        media_data = media_data or []
-        total = len(media_data)
-        # 全量覆盖
-        full_coverage = True if self.__check_full_coverage() else False
-        if not self.__check_config():
-            logger.warn(f"收藏影视前: 配置检查不通过")
-            return
-        logger.info(f"收藏影视前: total = {total}, full_coverage = {full_coverage}")
-        # 记忆阈值
-        memory_threshold = self.get_config_item(config_key="memory_threshold") or 1000
-        # 记忆
-        memory = self.__get_memory()
-        # 全量覆盖时不做历史存在性判断
-        if full_coverage:
-            logger.info(f"收藏影视前: 本次全量覆盖生效")
-            linkding_exists_media_unique_keys = self.__get_linkding_exists_media_unique_keys()
-            logger.info(f"收藏影视前: 检索到Linkding中已有{len(linkding_exists_media_unique_keys)}个收藏")
-            linkding_exists = self.__build_medias_by_unique_keys(unique_keys=linkding_exists_media_unique_keys)
-            media_data = media_data + linkding_exists
-            media_data = self.distinct_media_digests(media_data=media_data)
-            logger.info(f"收藏影视前: 合并本次和已有数据去重后共{len(media_data)}个需要收藏")
-            success_list = self.__collect(media_data=media_data)
-            logger.info(f"收藏影视后: 本次成功收藏{len(success_list)}个")
-            # 如果数量超过阈值就保存记忆
-            if len(success_list) > memory_threshold:
-                success_media_unique_keys = self.__build_media_unique_keys_by_media(media_data=success_list)
-                self.__save_memory(memory=success_media_unique_keys)
-                logger.info(f"收藏影视后: 本次收藏数量超过记忆阈{memory_threshold}，保存了{len(success_media_unique_keys)}个记忆")
-            # 否则如果先前有记忆，就重置记忆
-            elif memory:
-                self.__reset_memory()
-                logger.info(f"收藏影视后: 本次收藏数量未超过记忆阈{memory_threshold}，重置记忆完成")
-            return success_list
-        # 数量少时不做历史存在性判断
-        if total <= 10:
-            logger.info(f"收藏影视前: 本次数量少（不超过10），直接收藏")
-            success_list = self.__collect(media_data=media_data)
-            logger.info(f"收藏影视后: 本次成功收藏{len(success_list)}个")
-            # 如果先前有记忆，本次需要追加记忆
-            if memory:
-                success_media_unique_keys = self.__build_media_unique_keys_by_media(media_data=success_list)
-                self.__add_memory(memory=success_media_unique_keys)
-                logger.info(f"收藏影视后: 追加了{len(success_media_unique_keys)}个记忆")
-            return success_list
-        # 如果先前有记忆，则通过记忆判断是否已经添加
-        if memory:
-            media_data = [mdata for mdata in media_data if mdata and mdata.tmdb_id and self.__build_media_unique_key_by_media(media_data=mdata) not in memory]
-            logger.info(f"收藏影视前: 根据记忆进行存在性过滤后还有{len(media_data)}个需要收藏")
-            success_list = self.__collect(media_data=media_data)
-            logger.info(f"收藏影视后: 本次成功收藏{len(success_list)}个")
-            success_media_unique_keys = self.__build_media_unique_keys_by_media(media_data=success_list)
-            self.__add_memory(memory=set(success_media_unique_keys))
-            logger.info(f"收藏影视后: 追加了{len(success_media_unique_keys)}个记忆")
-            return success_list
-        # 如果先前没有记忆则通过检索linkding判断
-        else:
-            linkding_exists_media_unique_keys = self.__get_linkding_exists_media_unique_keys()
-            logger.info(f"收藏影视前: 检索到Linkding中已有{len(linkding_exists_media_unique_keys)}个收藏")
-            media_data = [mdata for mdata in media_data if mdata and mdata.tmdb_id and self.__build_media_unique_key_by_media(media_data=mdata) not in linkding_exists_media_unique_keys]
-            logger.info(f"收藏影视前: 根据Linkding检索结果进行存在性过滤后还有{len(media_data)}个需要收藏")
-            success_list = self.__collect(media_data=media_data)
-            logger.info(f"收藏影视后: 本次成功收藏{len(success_list)}个")
-            # 如果linkding中总数超过阈值就放到记忆中
-            linkding_count = len(linkding_exists_media_unique_keys) + len(success_list)
-            if linkding_count > memory_threshold:
-                success_media_unique_keys = self.__build_media_unique_keys_by_media(media_data=success_list)
-                init_memory = set(list(success_media_unique_keys) + list(linkding_exists_media_unique_keys))
-                self.__save_memory(memory=init_memory)
-                logger.info(f"收藏影视后: 本次收藏后累计数量超过记忆阈{memory_threshold}，初始化了{len(init_memory)}个记忆")
-            return success_list
 
     def __check_config(self) -> bool:
         """
@@ -369,6 +409,9 @@ class LinkdingFavorites(Favorites):
             return False, "参数错误[bookmark]"
         if not bookmark.url:
             return False, "书签信息有误"
+        if self.__exit_event.is_set():
+            logger.warn('运行任务中止: 组件正在退出')
+            return False, "组件正在退出"
         url = f"{base_url}/api/bookmarks/"
         authorization = self.__linkding_build_authorization_header(token=token)
         response = RequestUtils(
@@ -726,6 +769,9 @@ class LinkdingFavorites(Favorites):
         token = self.get_config_item(config_key="token")
         try:
             for mdata in media_data:
+                if self.__exit_event.is_set():
+                    logger.warn('运行任务中止: 组件正在退出')
+                    return success_list
                 success = self.__collect_single(media_data=mdata,
                                                 generate_notes=generate_notes,
                                                 custom_tags=custom_tags,
@@ -753,9 +799,15 @@ class LinkdingFavorites(Favorites):
         if not media_data or not media_data.tmdb_id or not media_data.type:
             logger.error(f"{self.comp_name} - 单个影视收藏失败: 影视信息不完整, media_data = {media_data.dict() if media_data else None}")
             return False
+        if self.__exit_event.is_set():
+            logger.warn('运行任务中止: 组件正在退出')
+            return False
         media_info: Optional[MediaInfo] = self.recognize_media_info(media_data=media_data)
         if not media_info:
             logger.error(f"{self.comp_name} - 单个影视收藏失败: 未识别到媒体, title = {media_data.title}, year = {media_data.year}, type = {media_data.type}, tmdb_id = {media_data.tmdb_id}")
+            return False
+        if self.__exit_event.is_set():
+            logger.warn('运行任务中止: 组件正在退出')
             return False
         bookmark: Optional[Bookmark] = self.__build_bookmark_by_media_info(media_info=media_info,
                                                                            generate_notes=generate_notes,
@@ -763,6 +815,9 @@ class LinkdingFavorites(Favorites):
                                                                            auto_tags=auto_tags,
                                                                            mark_unread=mark_unread)
         if not bookmark:
+            return False
+        if self.__exit_event.is_set():
+            logger.warn('运行任务中止: 组件正在退出')
             return False
         success, error_msg = self.__linkding_api_save_bookmark(base_url=linkding_base_url, token=linkding_token, bookmark=bookmark)
         if not success:

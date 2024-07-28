@@ -1,7 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from threading import RLock, Event as ThreadEvent
-from typing import Any, List, Dict, Tuple, OrderedDict, Type, Optional
+from typing import Any, List, Dict, Tuple, OrderedDict, Type, Optional, Union
 from datetime import datetime, timedelta
 import pytz
 
@@ -28,7 +28,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "1.5"
+    plugin_version = "1.6"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -75,19 +75,8 @@ class MediaCollectHelper(_PluginBase):
         config = self.__fix_config(config=config)
         # 重新加载插件配置
         self.__config = config
-        # 如果需要立即运行一次
-        if self.__get_config_item(config_key='run_once'):
-            try:
-                self.__start_scheduler()
-                self.__scheduler.add_job(func=self.__try_run,
-                                        trigger='date',
-                                        run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
-                                        name=f'{self.plugin_name}-立即运行一次')
-                logger.info(f"立即运行一次成功")
-            finally:
-                # 关闭一次性开关
-                self.__config['run_once'] = False
-                self.update_config(self.__config)
+        # 处理运行一次
+        self.__run_once()
 
     def get_state(self) -> bool:
         """
@@ -299,13 +288,12 @@ class MediaCollectHelper(_PluginBase):
         try:
             logger.info('尝试停止插件服务...')
             self.__exit_event.set()
+            self.__stop_comp_service()
             self.__stop_scheduler()
             self.__gc()
             logger.info('插件服务停止完成')
         except Exception as e:
             logger.error(f"插件服务停止异常: {str(e)}", exc_info=True)
-        finally:
-            self.__exit_event.clear()
 
     def __fix_config(self, config: dict) -> dict:
         """
@@ -434,6 +422,24 @@ class MediaCollectHelper(_PluginBase):
             return None
         return comp_type.__name__.removesuffix(Favorites.__name__).lower()
 
+    def __run_once(self):
+        """
+        执行立即运行一次
+        """
+        if not self.__get_config_item(config_key='run_once'):
+            return
+        try:
+            self.__start_scheduler()
+            self.__scheduler.add_job(func=self.__try_run,
+                                     trigger='date',
+                                     run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                                     name=f'{self.plugin_name}-立即运行一次')
+            logger.info(f"立即运行一次成功")
+        finally:
+            # 关闭一次性开关
+            self.__config['run_once'] = False
+            self.update_config(self.__config)
+
     def __register_comp(self):
         """
         注册组件
@@ -449,11 +455,11 @@ class MediaCollectHelper(_PluginBase):
             comp_name = comp_type.comp_name
             try:
                 comp_key = comp_type.comp_key or self.__extract_comp_key(comp_type=comp_type)
-                # 组件实例化
+                comp_obj = self.__comp_objs.get(comp_key)
+                if comp_obj:
+                    continue
                 comp_obj = comp_type(plugin=self)
-                # 初始化组件
-                if self.get_state():
-                    comp_obj.init_comp()
+                comp_obj.init_comp()
                 self.__comp_objs[comp_key] = comp_obj
                 logger.info(f"注册收藏夹组件 - {comp_name} - 成功")
             except Exception as e:
@@ -494,17 +500,43 @@ class MediaCollectHelper(_PluginBase):
         except Exception as e:
             logger.error(f"插件服务调度器停止异常: {str(e)}", exc_info=True)
 
+    def __stop_comp_service(self):
+        """
+        停止所有组件的服务
+        """
+        try:
+            logger.info('尝试停止所有组件...')
+            if self.__comp_objs:
+                for _, comp_obj in self.__comp_objs.items():
+                    try:
+                        comp_obj.stop_service()
+                        logger.info(f'组件停止成功: {comp_obj.comp_name}')
+                    except Exception as e:
+                        logger.error(f'组件停止失败: {comp_obj.comp_name}, {str(e)}', exc_info=True)
+                logger.info('所有组件停止成功')
+            else:
+                logger.info('插件未注册任何组件，无须处理')
+        except Exception as e:
+            logger.error(f"组件停止异常: {str(e)}", exc_info=True)
+
     def __gc(self):
         """
         回收内存
         """
-        if self.__comp_objs:
-            self.__comp_objs.clear()
-            self.__comp_objs = None
-        if self.__task_lock:
-            self.__task_lock = None
-        if self.__subscribe_oper:
-            self.__subscribe_oper = None
+        try:
+            logger.info('尝试回收内存...')
+            if self.__comp_objs:
+                self.__comp_objs.clear()
+                self.__comp_objs = None
+            if self.__task_lock:
+                self.__task_lock = None
+            if self.__subscribe_oper:
+                self.__subscribe_oper = None
+            if self.__exit_event:
+                self.__exit_event = None
+            logger.info('回收内存成功')
+        except Exception as e:
+            logger.error(f"回收内存异常: {str(e)}", exc_info=True)
 
     def __build_comp_form_element(self) -> dict:
         """
@@ -697,10 +729,10 @@ class MediaCollectHelper(_PluginBase):
                 logger.warn(f"运行任务中止: 插件正在退出")
                 return
             for comp_key, comp_obj in self.__comp_objs.items():
-                if self.__exit_event.is_set():
-                    logger.warn(f"运行任务中止: 插件正在退出, comp_key = {comp_key}")
-                    continue
                 try:
+                    if self.__exit_event.is_set():
+                        logger.warn(f"运行任务中止: 插件正在退出, comp_key = {comp_key}")
+                        break
                     result = self.__run_single(comp_obj=comp_obj, media_data=media_data)
                     run_results.append((True, comp_key, comp_obj, result))
                     logger.info(f"收藏夹[{comp_obj.comp_name}]任务执行完成, 共收藏了{len(result)}个")
@@ -856,30 +888,49 @@ class MediaCollectHelper(_PluginBase):
             tmdb_ids.add(md.tmdb_id)
         return result
 
+    def __check_event_and_get_mediainfo(self, event: Optional[Event]) -> Tuple[bool, Union[MediaInfo, dict]]:
+        """
+        检查事件对象并返回媒体信息
+        """
+        if not event or not event.event_data:
+            logger.warn('事件信息无效，忽略事件')
+            return False, None
+        mediainfo = event.event_data.get("mediainfo")
+        if not mediainfo:
+            logger.warn('事件信息无效，忽略事件')
+            return False, mediainfo
+        if not self.get_state():
+            logger.warn('插件状态无效，忽略事件')
+            return False, mediainfo
+        enable_favorites = self.__get_config_item(config_key="enable_favorites")
+        if not enable_favorites:
+            logger.warn("未启用任何收藏夹，忽略事件")
+            return False, mediainfo
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，忽略事件')
+            return False, mediainfo
+        return True, mediainfo
+
     @eventmanager.register(EventType.TransferComplete)
     def listen_download_file_deleted_event(self, event: Event = None):
         """
         监听转移完成事件
         """
         logger.info('监听到转移完成事件')
-        if not event or not event.event_data:
-            logger.warn('事件信息无效，忽略事件')
+        success, mediainfo = self.__check_event_and_get_mediainfo(event=event)
+        if not success:
             return
-        mediainfo: MediaInfo = event.event_data.get("mediainfo")
-        if not mediainfo or not mediainfo.tmdb_id:
-            logger.warn('事件信息无效，忽略事件')
+        media_data_sources = self.__get_config_item("media_data_sources")
+        if not media_data_sources or MediaDataSource.MEDIA_LIBRARY.name not in media_data_sources:
+            logger.warn(f"未启用{MediaDataSource.MEDIA_LIBRARY.value}的数据来源，忽略事件")
             return
-        if not self.get_state():
-            logger.warn('插件状态无效，忽略事件')
-            return
-        enable_favorites = self.__get_config_item(config_key="enable_favorites")
-        if not enable_favorites:
-            logger.warn("未启用任何收藏夹，忽略事件")
+        collect_media_types = self.__get_config_item("collect_media_types")
+        if not collect_media_types or mediainfo.type.name not in collect_media_types:
+            logger.warn(f"未启用{mediainfo.type.value}类型，忽略事件")
             return
         if self.__exit_event.is_set():
             logger.warn('插件服务正在退出，忽略事件')
             return
-        # 执行
         logger.info('转移完成事件监听任务执行开始...')
         md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, tmdb_id=mediainfo.tmdb_id, imdb_id=mediainfo.imdb_id, tvdb_id=mediainfo.tvdb_id)
         self.__block_run(media_data=[md])
@@ -891,25 +942,22 @@ class MediaCollectHelper(_PluginBase):
         监听订阅已添加事件
         """
         logger.info('监听到订阅已添加事件')
-        if not event or not event.event_data:
-            logger.warn('事件信息无效，忽略事件')
+        success, mediainfo = self.__check_event_and_get_mediainfo(event=event)
+        if not success:
             return
-        mediainfo: dict = event.event_data.get("mediainfo")
-        if not mediainfo or not mediainfo.get("tmdb_id"):
-            logger.warn('事件信息无效，忽略事件')
+        media_data_sources = self.__get_config_item("media_data_sources")
+        if not media_data_sources or MediaDataSource.SUBSCRIBE.name not in media_data_sources:
+            logger.warn(f"未启用{MediaDataSource.SUBSCRIBE.value}的数据来源，忽略事件")
             return
-        if not self.get_state():
-            logger.warn('插件状态无效，忽略事件')
-            return
-        enable_favorites = self.__get_config_item(config_key="enable_favorites")
-        if not enable_favorites:
-            logger.warn("未启用任何收藏夹，忽略事件")
+        media_type: MediaType = mediainfo.get("type")
+        collect_media_types = self.__get_config_item("collect_media_types")
+        if not collect_media_types or media_type.name not in collect_media_types:
+            logger.warn(f"未启用{media_type.value}类型，忽略事件")
             return
         if self.__exit_event.is_set():
             logger.warn('插件服务正在退出，忽略事件')
             return
-        # 执行
         logger.info('订阅已添加事件监听任务执行开始...')
-        md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=mediainfo.get("type"), tmdb_id=mediainfo.get("tmdb_id"), imdb_id=mediainfo.get("imdb_id"), tvdb_id=mediainfo.get("tvdb_id"))
+        md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=media_type, tmdb_id=mediainfo.get("tmdb_id"), imdb_id=mediainfo.get("imdb_id"), tvdb_id=mediainfo.get("tvdb_id"))
         self.__block_run(media_data=[md])
         logger.info('订阅已添加事件监听任务执行结束')

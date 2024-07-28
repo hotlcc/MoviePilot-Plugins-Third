@@ -177,6 +177,13 @@ class Favorites(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def stop_service(self):
+        """
+        停止组件
+        """
+        pass
+
+    @abstractmethod
     def collect(self, media_data: List[MediaDigest]) -> List[MediaDigest]:
         """
         收藏影视
