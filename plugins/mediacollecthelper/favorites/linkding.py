@@ -394,9 +394,9 @@ class LinkdingFavorites(Favorites):
         检查响应
         """
         if not response:
-            return False, "Linkding接口响应无效"
+            raise Exception("Linkding接口响应超时")
         if not response.ok:
-            return False, "Linkding接口响应错误"
+            raise Exception(f"Linkding接口响应错误码[{response.status_code}]")
         return True, None
 
     def __linkding_api_save_bookmark(self, base_url: str, token: str, bookmark: Bookmark) -> Tuple[bool, str]:
@@ -420,7 +420,7 @@ class LinkdingFavorites(Favorites):
             headers={
                 "Authorization": authorization
             },
-            timeout=5
+            timeout=60
         ).post_res(url=url, json=bookmark.dict(exclude_none=True))
         return self.__linkding_api_check_response(response=response)
 
@@ -440,7 +440,7 @@ class LinkdingFavorites(Favorites):
                 headers={
                     "Authorization": authorization
                 },
-                timeout=5
+                timeout=60
             ).get_res(url=url, params={
                 "q": search_str,
                 "limit": 1000,
