@@ -449,12 +449,23 @@ class MediaCollectHelper(_PluginBase):
             package_path="app.plugins.mediacollecthelper.favorites",
             filter_func=lambda _, obj: self.__check_comp_type(comp_type=obj)
         )
+        # 数量
+        comp_count = len(comp_types) if comp_types else 0
+        logger.info(f"总共加载到{comp_count}个收藏夹组件")
         if not comp_types:
             return
+        # 组件key缺省值处理
+        for comp_type in comp_types:
+            if not comp_type or comp_type.comp_key:
+                continue
+            comp_type.comp_key = self.__extract_comp_key(comp_type=comp_type)
+        # 组件排序，顺序一样时按照key排序
+        comp_types = sorted(comp_types, key=lambda comp_type: (comp_type.comp_order, comp_type.comp_key))
+        # 依次实例化并注册
         for comp_type in comp_types:
             comp_name = comp_type.comp_name
             try:
-                comp_key = comp_type.comp_key or self.__extract_comp_key(comp_type=comp_type)
+                comp_key = comp_type.comp_key
                 comp_obj = self.__comp_objs.get(comp_key)
                 if comp_obj:
                     continue

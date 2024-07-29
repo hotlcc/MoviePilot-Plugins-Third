@@ -35,6 +35,8 @@ class LinkdingFavorites(Favorites):
     comp_key: str = "linkding"
     # 组件名称
     comp_name: str = "Linkding"
+    # 组件顺序
+    comp_order: int = 1
 
     # 私有属性
     # 退出事件

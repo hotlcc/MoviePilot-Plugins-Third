@@ -19,6 +19,8 @@ class Favorites(metaclass=ABCMeta):
     comp_key: str = ""
     # 组件名称
     comp_name: str = ""
+    # 组件顺序
+    comp_order: int = 0
 
     # 配置相关
     # 组件缺省配置
