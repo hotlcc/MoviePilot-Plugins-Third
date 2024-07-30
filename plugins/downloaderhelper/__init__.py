@@ -136,18 +136,16 @@ class DownloaderHelper(_PluginBase):
 
         # 如果需要立即运行一次
         if self.__get_config_item(config_key='run_once'):
-            if self.__check_enable_any_task():
-                self.__start_scheduler()
-                self.__scheduler.add_job(func=self.__try_run,
-                                         trigger='date',
-                                         run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
-                                         name='下载器助手任务-立即运行一次')
-                logger.info(f"立即运行一次成功")
-            else:
-                logger.warn(f"任务配置无效，立即运行一次未执行")
-            # 关闭一次性开关
-            self.__config['run_once'] = False
-            self.update_config(self.__config)
+            try:
+                if self.__check_enable_any_task():
+                    self.__async_try_run()
+                    logger.info(f"立即运行一次成功")
+                else:
+                    logger.warn(f"任务配置无效，立即运行一次未执行")
+            finally:
+                # 关闭一次性开关
+                self.__config['run_once'] = False
+                self.update_config(self.__config)
 
     def get_state(self) -> bool:
         """
@@ -1661,6 +1659,18 @@ class DownloaderHelper(_PluginBase):
         finally:
             self.__task_lock.release()
 
+    def __async_try_run(self, context: TaskContext = None):
+        """
+        异步Try运行
+        """
+        self.__start_scheduler()
+        def __do_task():
+            self.__try_run(context=context)
+        self.__scheduler.add_job(func=__do_task,
+                                    trigger='date',
+                                    run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                                    name='异步Try运行')
+
     def __block_run(self, context: TaskContext = None):
         """
         阻塞运行插件任务
@@ -1670,6 +1680,18 @@ class DownloaderHelper(_PluginBase):
             self.__run_for_all(context=context)
         finally:
             self.__task_lock.release()
+
+    def __async_block_run(self, context: TaskContext = None):
+        """
+        异步阻塞运行
+        """
+        self.__start_scheduler()
+        def __do_task():
+            self.__block_run(context=context)
+        self.__scheduler.add_job(func=__do_task,
+                                    trigger='date',
+                                    run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                                    name='异步阻塞运行')
 
     def __run_for_all(self, context: TaskContext = None) -> TaskContext:
         """
@@ -3062,7 +3084,7 @@ class DownloaderHelper(_PluginBase):
             .enable_tagging(False) \
             .enable_delete(True) \
             .set_download_file_deleted_event_data(event.event_data)
-        self.__block_run(context=context)
+        self.__async_block_run(context=context)
         logger.info('源文件删除事件监听任务执行结束')
 
     @eventmanager.register(EventType.DownloadDeleted)
@@ -3097,5 +3119,5 @@ class DownloaderHelper(_PluginBase):
             .enable_tagging(False) \
             .enable_delete(True) \
             .set_download_deleted_event_data(torrent_info)
-        self.__block_run(context=context)
+        self.__async_block_run(context=context)
         logger.info('下载任务删除事件监听任务执行结束')
