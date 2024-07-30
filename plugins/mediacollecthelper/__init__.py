@@ -28,7 +28,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "1.7"
+    plugin_version = "1.8"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -449,12 +449,23 @@ class MediaCollectHelper(_PluginBase):
             package_path="app.plugins.mediacollecthelper.favorites",
             filter_func=lambda _, obj: self.__check_comp_type(comp_type=obj)
         )
+        # 数量
+        comp_count = len(comp_types) if comp_types else 0
+        logger.info(f"总共加载到{comp_count}个收藏夹组件")
         if not comp_types:
             return
+        # 组件key缺省值处理
+        for comp_type in comp_types:
+            if not comp_type or comp_type.comp_key:
+                continue
+            comp_type.comp_key = self.__extract_comp_key(comp_type=comp_type)
+        # 组件排序，顺序一样时按照key排序
+        comp_types = sorted(comp_types, key=lambda comp_type: (comp_type.comp_order, comp_type.comp_key))
+        # 依次实例化并注册
         for comp_type in comp_types:
             comp_name = comp_type.comp_name
             try:
-                comp_key = comp_type.comp_key or self.__extract_comp_key(comp_type=comp_type)
+                comp_key = comp_type.comp_key
                 comp_obj = self.__comp_objs.get(comp_key)
                 if comp_obj:
                     continue
@@ -912,7 +923,7 @@ class MediaCollectHelper(_PluginBase):
         return True, mediainfo
 
     @eventmanager.register(EventType.TransferComplete)
-    def listen_download_file_deleted_event(self, event: Event = None):
+    def listen_transfer_complete_event(self, event: Event = None):
         """
         监听转移完成事件
         """
@@ -940,7 +951,7 @@ class MediaCollectHelper(_PluginBase):
             logger.error(f'转移完成事件监听任务执行异常: {str(e)}', exc_info=True)
 
     @eventmanager.register(EventType.SubscribeAdded)
-    def listen_download_file_deleted_event(self, event: Event = None):
+    def listen_subscribe_added_event(self, event: Event = None):
         """
         监听订阅已添加事件
         """
