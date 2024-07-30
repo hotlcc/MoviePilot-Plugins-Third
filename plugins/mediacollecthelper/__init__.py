@@ -429,11 +429,7 @@ class MediaCollectHelper(_PluginBase):
         if not self.__get_config_item(config_key='run_once'):
             return
         try:
-            self.__start_scheduler()
-            self.__scheduler.add_job(func=self.__try_run,
-                                     trigger='date',
-                                     run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
-                                     name=f'{self.plugin_name}-立即运行一次')
+            self.__async_try_run()
             logger.info(f"立即运行一次成功")
         finally:
             # 关闭一次性开关
@@ -699,6 +695,18 @@ class MediaCollectHelper(_PluginBase):
         finally:
             self.__task_lock.release()
 
+    def __async_try_run(self, media_data: List[MediaDigest] = None):
+        """
+        异步Try运行
+        """
+        self.__start_scheduler()
+        def __do_task():
+            self.__try_run(media_data=media_data)
+        self.__scheduler.add_job(func=__do_task,
+                                    trigger='date',
+                                    run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                                    name='异步Try运行')
+
     def __block_run(self, media_data: List[MediaDigest] = None):
         """
         阻塞运行插件任务
@@ -714,6 +722,18 @@ class MediaCollectHelper(_PluginBase):
             self.__run(media_data=media_data)
         finally:
             self.__task_lock.release()
+
+    def __async_block_run(self, media_data: List[MediaDigest] = None):
+        """
+        异步阻塞运行
+        """
+        self.__start_scheduler()
+        def __do_task():
+            self.__block_run(media_data=media_data)
+        self.__scheduler.add_job(func=__do_task,
+                                    trigger='date',
+                                    run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                                    name='异步阻塞运行')
 
     def __run(self, media_data: List[MediaDigest] = None):
         """
@@ -945,7 +965,7 @@ class MediaCollectHelper(_PluginBase):
                 return
             logger.info('转移完成事件监听任务执行开始...')
             md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, tmdb_id=mediainfo.tmdb_id, imdb_id=mediainfo.imdb_id, tvdb_id=mediainfo.tvdb_id)
-            self.__block_run(media_data=[md])
+            self.__async_block_run(media_data=[md])
             logger.info('转移完成事件监听任务执行成功')
         except Exception as e:
             logger.error(f'转移完成事件监听任务执行异常: {str(e)}', exc_info=True)
@@ -975,7 +995,7 @@ class MediaCollectHelper(_PluginBase):
                 return
             logger.info('订阅已添加事件监听任务执行开始...')
             md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=media_type, tmdb_id=mediainfo.get("tmdb_id"), imdb_id=mediainfo.get("imdb_id"), tvdb_id=mediainfo.get("tvdb_id"))
-            self.__block_run(media_data=[md])
+            self.__async_block_run(media_data=[md])
             logger.info('订阅已添加事件监听任务执行成功')
         except Exception as e:
             logger.error(f'订阅已添加事件监听任务执行异常: {str(e)}', exc_info=True)
