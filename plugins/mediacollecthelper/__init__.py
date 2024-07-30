@@ -923,7 +923,7 @@ class MediaCollectHelper(_PluginBase):
         return True, mediainfo
 
     @eventmanager.register(EventType.TransferComplete)
-    def listen_download_file_deleted_event(self, event: Event = None):
+    def listen_transfer_complete_event(self, event: Event = None):
         """
         监听转移完成事件
         """
@@ -951,7 +951,7 @@ class MediaCollectHelper(_PluginBase):
             logger.error(f'转移完成事件监听任务执行异常: {str(e)}', exc_info=True)
 
     @eventmanager.register(EventType.SubscribeAdded)
-    def listen_download_file_deleted_event(self, event: Event = None):
+    def listen_subscribe_added_event(self, event: Event = None):
         """
         监听订阅已添加事件
         """
