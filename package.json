@@ -3,11 +3,12 @@
         "name": "下载器助手",
         "description": "自动标签、自动做种、自动删种。",
         "labels": "下载管理,仪表板",
-        "version": "3.3.1",
+        "version": "3.4",
         "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png",
         "author": "hotlcc",
         "level": 1,
         "history": {
+            "v3.4": "优化了任务执行逻辑。",
             "v3.3.1": "fix bug",
             "v3.3": "修复自动标签的bug。",
             "v3.2": "优化任务日志。",
