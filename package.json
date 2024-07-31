@@ -75,11 +75,12 @@
         "name": "影视收藏助手",
         "description": "自动收藏MP中的影视信息到其它介质。",
         "labels": "媒体工具",
-        "version": "1.9",
+        "version": "1.10",
         "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png",
         "author": "hotlcc",
         "level": 1,
         "history": {
+            "v1.10": "优化了事件执行逻辑。更新后可能需要重启MP。",
             "v1.9": "优化了任务执行逻辑。",
             "v1.8": "组件支持排序；修复了一些bug。更新后可能需要重启MP。",
             "v1.7": "修复了一些bug。",
