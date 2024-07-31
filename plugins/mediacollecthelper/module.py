@@ -40,7 +40,7 @@ class AtomicCache():
     def __init__(self, cache: Cache):
         """
         """
-        if not cache:
+        if cache is None:
             raise Exception("Param 'cache' cannot be None.")
         self.__lock: RLock = RLock()
         self.__cache: Cache = cache
