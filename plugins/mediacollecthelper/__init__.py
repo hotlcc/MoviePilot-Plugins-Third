@@ -4,6 +4,7 @@ from threading import RLock, Event as ThreadEvent
 from typing import Any, List, Dict, Tuple, OrderedDict, Type, Optional, Union
 from datetime import datetime, timedelta
 import pytz
+from cachetools import TTLCache
 
 from app.core.config import settings
 from app.core.context import MediaInfo
@@ -16,7 +17,7 @@ from app.helper.module import ModuleHelper
 from app.log import logger
 from app.plugins import _PluginBase
 from app.plugins.mediacollecthelper.favorites import Favorites
-from app.plugins.mediacollecthelper.module import MediaDataSource, MediaDigest
+from app.plugins.mediacollecthelper.module import MediaDataSource, MediaDigest, AtomicCache
 from app.schemas.types import MediaType, EventType, NotificationType
 
 
@@ -53,6 +54,8 @@ class MediaCollectHelper(_PluginBase):
     __exit_event: ThreadEvent = ThreadEvent()
     # 订阅数据操作
     __subscribe_oper: SubscribeOper = SubscribeOper()
+    # 原子缓存操作，用于处理短期内事件媒体相同的清空去重
+    __atomic_cache: AtomicCache = AtomicCache(cache=TTLCache(maxsize=1000, ttl=60 * 5))
 
     # 配置相关
     # 插件缺省配置
@@ -541,6 +544,9 @@ class MediaCollectHelper(_PluginBase):
                 self.__subscribe_oper = None
             if self.__exit_event:
                 self.__exit_event = None
+            if self.__atomic_cache:
+                self.__atomic_cache.clear()
+                self.__atomic_cache = None
             logger.info('回收内存成功')
         except Exception as e:
             logger.error(f"回收内存异常: {str(e)}", exc_info=True)
@@ -962,6 +968,10 @@ class MediaCollectHelper(_PluginBase):
                 return
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，忽略事件')
+                return
+            atomic_cache_key = f"tmdb:{mediainfo.type.name.lower()}:{mediainfo.tmdb_id}"
+            if self.__atomic_cache.get_and_set(key=atomic_cache_key, value=True):
+                logger.warn(f'短期内已经处理过该媒体，忽略事件: title = {mediainfo.title}, year = {mediainfo.year}, type = {mediainfo.type}, tmdb_id = {mediainfo.tmdb_id}')
                 return
             logger.info('转移完成事件监听任务执行开始...')
             md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, tmdb_id=mediainfo.tmdb_id, imdb_id=mediainfo.imdb_id, tvdb_id=mediainfo.tvdb_id)
