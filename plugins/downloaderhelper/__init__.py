@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from cachetools import TTLCache
+from cachetools import TTLCache, cached
 from qbittorrentapi import TorrentDictionary, TorrentState
 from transmission_rpc.torrent import Torrent, Status as TorrentStatus
 from ruamel.yaml.comments import CommentedMap
@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "3.4"
+    plugin_version = "3.5"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -1414,6 +1414,10 @@ class DownloaderHelper(_PluginBase):
         if not torrent or not context:
             return False, None
 
+        # 下载中的种子不允许删除
+        if (torrent.state_enum.is_downloading):
+            return False, None
+
         # 根据种子状态判断是否应该删种：状态为丢失文件时需要删除
         if torrent.get('state') == 'missingFiles':
             return True, "丢失文件"
@@ -1455,6 +1459,10 @@ class DownloaderHelper(_PluginBase):
         :param deleted_event_data: 任务执行伴随的源文件删除事件数据
         """
         if not torrent or not context:
+            return False, None
+
+        # 下载中的种子不允许删除
+        if (torrent.progress < 100):
             return False, None
 
         # 根据种子状态判断是否应该删种：状态为丢失文件时需要删除
@@ -1761,7 +1769,7 @@ class DownloaderHelper(_PluginBase):
 
             context.save_result(result=result)
 
-            torrents, error = qbittorrent.get_torrents()
+            torrents, error = self.__get_torrents_for_qbittorrent(qbittorrent=qbittorrent)
             if error:
                 logger.warn(f'从下载器[{downloader_name}]中获取种子失败，任务终止')
                 return context
@@ -1806,6 +1814,15 @@ class DownloaderHelper(_PluginBase):
             result.set_success(False)
             logger.error(f'下载器[{downloader_name}]任务执行失败: {str(e)}', exc_info=True)
         return context
+
+    @cached(cache=TTLCache(maxsize=1, ttl=60))
+    def __get_torrents_for_qbittorrent(self, qbittorrent: Qbittorrent) -> Tuple[List[TorrentDictionary], bool]:
+        """
+        获取qb种子
+        """
+        if not qbittorrent:
+            return None, False
+        return qbittorrent.get_torrents()
 
     def __seeding_batch_for_qbittorrent(self, torrents: List[TorrentDictionary]) -> int:
         """
@@ -2072,18 +2089,8 @@ class DownloaderHelper(_PluginBase):
             context.save_result(result=result)
 
             # 获取全部种子
-            # 需要 isPrivate 字段判断是否是私有种子
-            arguments = transmission._trarg.copy()
-            is_private_field = "isPrivate"
-            if is_private_field not in arguments:
-                arguments.append(is_private_field)
-            # 需要 totalSize 和 sizeWhenDone 字段判断是否全选文件
-            if TorrentField.TOTAL_SIZE.tr not in arguments:
-                arguments.append(TorrentField.TOTAL_SIZE.tr)
-            if TorrentField.SELECT_SIZE.tr not in arguments:
-                arguments.append(TorrentField.SELECT_SIZE.tr)
             try:
-                torrents = transmission.trc.get_torrents(arguments=arguments)
+                torrents = self.__get_torrents_for_transmission(transmission=transmission)
             except Exception as e:
                 logger.warn(f'从下载器[{downloader_name}]中获取种子失败，任务终止')
                 return context
@@ -2128,6 +2135,25 @@ class DownloaderHelper(_PluginBase):
             result.set_success(False)
             logger.error(f'下载器[{downloader_name}]任务执行失败: {str(e)}', exc_info=True)
         return context
+
+    @cached(cache=TTLCache(maxsize=1, ttl=60))
+    def __get_torrents_for_transmission(self, transmission: Transmission) -> List[Torrent]:
+        """
+        获取tr种子
+        """
+        if not transmission:
+            return None, False
+        # 需要 isPrivate 字段判断是否是私有种子
+        arguments = transmission._trarg.copy()
+        is_private_field = "isPrivate"
+        if is_private_field not in arguments:
+            arguments.append(is_private_field)
+        # 需要 totalSize 和 sizeWhenDone 字段判断是否全选文件
+        if TorrentField.TOTAL_SIZE.tr not in arguments:
+            arguments.append(TorrentField.TOTAL_SIZE.tr)
+        if TorrentField.SELECT_SIZE.tr not in arguments:
+            arguments.append(TorrentField.SELECT_SIZE.tr)
+        return transmission.trc.get_torrents(arguments=arguments)
 
     def __seeding_batch_for_transmission(self, transmission: Transmission, torrents: List[Torrent]) -> int:
         """
