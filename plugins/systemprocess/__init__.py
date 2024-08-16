@@ -1,9 +1,10 @@
 from typing import Any, List, Dict, Tuple, Optional
+import psutil
+import datetime
 
 from app.plugins import _PluginBase
 from app.schemas.dashboard import ProcessInfo
 from app.utils.string import StringUtils
-from app.utils.system import SystemUtils
 
 
 class SystemProcess(_PluginBase):
@@ -14,7 +15,7 @@ class SystemProcess(_PluginBase):
     # 插件图标
     plugin_icon = "Dsfinder_A.png"
     # 插件版本
-    plugin_version = "1.0"
+    plugin_version = "1.1"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -235,11 +236,37 @@ class SystemProcess(_PluginBase):
         return config_value
 
     @staticmethod
-    def __get_all_process_info() -> List[ProcessInfo]:
+    def __processes() -> List[ProcessInfo]:
+        """
+        获取所有进程
+        """
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'create_time', 'memory_info', 'status']):
+            try:
+                if proc.status() is psutil.STATUS_ZOMBIE:
+                    continue
+                memory_info = proc.memory_info()
+                memory = round(memory_info.rss / (1024 * 1024), 1) if memory_info else 0
+                create_time = proc.create_time() or 0
+                run_time = datetime.datetime.now() - datetime.datetime.fromtimestamp(create_time)
+                processes.append(ProcessInfo(
+                    pid=proc.pid,
+                    name=proc.name(),
+                    cpu=proc.cpu_percent(),
+                    memory=memory,
+                    create_time=create_time,
+                    run_time=run_time.seconds
+                ))
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        return processes
+
+    @classmethod
+    def __get_all_process_info(cls) -> List[ProcessInfo]:
         """
         获取全部进程信息
         """
-        all_process_info = SystemUtils.processes()
+        all_process_info = cls.__processes()
         if not all_process_info:
             return []
         return sorted(all_process_info, key=lambda info: info.pid, reverse=True)
@@ -275,13 +302,19 @@ class SystemProcess(_PluginBase):
                     'props': {
                         'class': 'whitespace-nowrap'
                     },
-                    'text': StringUtils.str_secends(time_sec=item.run_time)
+                    'text': f'{item.cpu}%'
                 }, {
                     'component': 'td',
                     'props': {
                         'class': 'whitespace-nowrap'
                     },
                     'text': f'{item.memory}MB'
+                }, {
+                    'component': 'td',
+                    'props': {
+                        'class': 'whitespace-nowrap'
+                    },
+                    'text': StringUtils.str_secends(time_sec=item.run_time)
                 }]
             } for item in all_process_info if item]
         else:
@@ -331,13 +364,19 @@ class SystemProcess(_PluginBase):
                     'props': {
                         'class': 'text-start ps-4'
                     },
-                    'text': '运行时长'
+                    'text': 'CPU占用'
                 }, {
                     'component': 'th',
                     'props': {
                         'class': 'text-start ps-4'
                     },
-                    'text': '占用内存'
+                    'text': '内存占用'
+                }, {
+                    'component': 'th',
+                    'props': {
+                        'class': 'text-start ps-4'
+                    },
+                    'text': '运行时长'
                 }]
             }, {
                 'component': 'tbody',
