@@ -11,17 +11,17 @@ from app.schemas.types import NotificationType
 from app.log import logger
 
 
-class DingtalkRobotChannel(CustomChannel):
+class QiyeWeixinBotChannel(CustomChannel):
     """
-    钉钉机器人渠道 https://open.dingtalk.com/document/orgapp/custom-robots-send-group-messages
+    企业微信机器人渠道
     """
 
     # 组件key
-    comp_key: str = f"{CustomChannel.comp_key}.dingtalkrobot"
+    comp_key: str = f"{CustomChannel.comp_key}.qiyeweixinbot"
     # 组件名称
-    comp_name: str = "钉钉机器人"
+    comp_name: str = "企业微信机器人"
     # 组件顺序
-    comp_order: int = CustomChannel.comp_order * 100 + 8
+    comp_order: int = CustomChannel.comp_order * 100 + 9
 
     # 配置相关
     # 组件缺省配置
@@ -48,10 +48,10 @@ class DingtalkRobotChannel(CustomChannel):
                 'content': [{
                     'component': 'VTextField',
                     'props': {
-                        'model': 'access_token',
-                        'label': 'Access Token',
+                        'model': 'key',
+                        'label': '密钥',
                         'placeholder': 'xxx',
-                        'hint': '必填。自定义机器人调用接口的凭证。'
+                        'hint': '必填。'
                     }
                 }]
             }, {
@@ -63,22 +63,7 @@ class DingtalkRobotChannel(CustomChannel):
                 'content': [{
                     'component': 'VTextField',
                     'props': {
-                        'model': 'secret',
-                        'label': '加签密钥',
-                        'placeholder': 'SECxxx',
-                        'hint': '选填。自定义机器人的安全设置使用的是加签方式时需要配置该项。'
-                    }
-                }]
-            }, {
-                'component': 'VCol',
-                'props': {
-                    'cols': 12,
-                    'xxl': 6, 'xl': 6, 'lg': 6, 'md': 6, 'sm': 6, 'xs': 12
-                },
-                'content': [{
-                    'component': 'VTextField',
-                    'props': {
-                        'model': 'atMobiles',
+                        'model': 'mentioned_mobile_list',
                         'label': '@手机号',
                         'placeholder': '15xxx,18xxx',
                         'hint': '选填。被@的群成员手机号，多个用英文逗号,分隔。'
@@ -93,7 +78,7 @@ class DingtalkRobotChannel(CustomChannel):
                 'content': [{
                     'component': 'VTextField',
                     'props': {
-                        'model': 'atUserIds',
+                        'model': 'mentioned_list',
                         'label': '@UserId',
                         'placeholder': 'user001,user002',
                         'hint': '选填。被@的群成员userId，多个用英文逗号,分隔。'
@@ -124,72 +109,50 @@ class DingtalkRobotChannel(CustomChannel):
         """
         检查配置
         """
-        if not self.get_config_item(config_key="access_token"):
-            logger.warn(f"配置检查不通过: channel = {self.comp_name}, Access Token 无效")
+        if not self.get_config_item(config_key="key"):
+            logger.warn(f"配置检查不通过: channel = {self.comp_name}, 密钥无效")
             return False
         return True
-
-    @classmethod
-    def __sign(cls, timestamp: str, secret: str) -> str:
-        """
-        构造签名字符串
-        """
-        secret_enc = secret.encode('utf-8')
-        string_to_sign = f"{timestamp}\n{secret}"
-        string_to_sign_enc = string_to_sign.encode('utf-8')
-        hmac_code = hmac.new(secret_enc, string_to_sign_enc, digestmod=hashlib.sha256).digest()
-        sign = quote_plus(base64.b64encode(hmac_code))
-        return sign
-
-    def __build_query(self) -> str:
-        """
-        构造请求query
-        """
-        # query
-        query = {
-            'access_token': self.get_config_item(config_key="access_token"),
-        }
-        # 签名相关
-        secret = self.get_config_item(config_key="secret")
-        if secret:
-            timestamp = str(round(time.time() * 1000))
-            sign = self.__sign(timestamp, secret)
-            query["timestamp"] = timestamp
-            query["sign"] = sign
-        return urlencode(query)
 
     def __build_url(self) -> str:
         """
         构造url
         """
-        query = self.__build_query()
-        return f"https://oapi.dingtalk.com/robot/send?{query}"
+        key = self.get_config_item(config_key="key")
+        return f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={key}"
+
+    def __build_message_content(self, title: str, text: str, ext_info: dict = {}) -> Tuple[str, dict]:
+        """
+        构造消息内容
+        """
+        ext_info = ext_info or {}
+        image = ext_info.get("image")
+        # 文本类型
+        if not title and text and not image:
+            return "text", text
+        # Markdown类型
+        markdown = ""
+        if title:
+            markdown += f"# {title}\n\n"
+        if text:
+            markdown += f"> {text}\n\n"
+        if image:
+            markdown += f"![]({image})\n\n"
+        return "markdown", markdown
 
     def __build_message(self, title: str, text: str, ext_info: dict = {}) -> Tuple[str, dict]:
         """
         构造消息
         """
-        ext_info = ext_info or {}
-        link = ext_info.get("link")
-        image = ext_info.get("image")
-        # 链接类型
-        if (link and image):
-            return "link", {
-                "title": title,
-                "text": text,
-                "picUrl": image,
-                "messageUrl": link,
-            }
-        # Markdown 类型
-        if image or title:
-            markdown = f"{text}\n\n![]({image})" if image else text
-            return "markdown", {
-                "title": title,
-                "text": markdown,
-            }
-        # 文本消息
-        return "text", {
-            "content": text,
+        msgtype, content = self.__build_message_content(title=title, text=text, ext_info=ext_info)
+        mentioned_mobile_list = self.__split_multstr(raw_str=self.get_config_item(config_key="mentioned_mobile_list"))
+        mentioned_list = self.__split_multstr(raw_str=self.get_config_item(config_key="mentioned_list"))
+        if self.get_config_item(config_key="isAtAll"):
+            mentioned_mobile_list.append("@all")
+        return msgtype, {
+            "content": content,
+            "mentioned_mobile_list": mentioned_mobile_list,
+            "mentioned_list": mentioned_list
         }
 
     @classmethod
@@ -207,12 +170,7 @@ class DingtalkRobotChannel(CustomChannel):
         # json
         json = {
             "msgtype": msgtype,
-            msgtype: msg,
-            "at": {
-                "atMobiles": self.__split_multstr(raw_str=self.get_config_item(config_key="atMobiles")),
-                "atUserIds": self.__split_multstr(raw_str=self.get_config_item(config_key="atUserIds")),
-                "isAtAll": True if self.get_config_item(config_key="isAtAll") else False,
-            }
+            msgtype: msg
         }
         return json
 
@@ -237,7 +195,7 @@ class DingtalkRobotChannel(CustomChannel):
         if res.ok or res_json:
             code = res_json.get("errcode")
             message = res_json.get("errmsg")
-            if code == 0 or code == "0":
+            if code == 0:
                 logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
             else:
                 logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")

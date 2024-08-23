@@ -38,7 +38,7 @@ class ChanifyChannel(CustomChannel):
                 'component': 'VCol',
                 'props': {
                     'cols': 12,
-                    'xxl': 12, 'xl': 12, 'lg': 12, 'md': 12, 'sm': 12, 'xs': 12
+                    'xxl': 6, 'xl': 6, 'lg': 6, 'md': 6, 'sm': 6, 'xs': 12
                 },
                 'content': [{
                     'component': 'VTextField',
@@ -52,7 +52,7 @@ class ChanifyChannel(CustomChannel):
                 'component': 'VCol',
                 'props': {
                     'cols': 12,
-                    'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    'xxl': 6, 'xl': 6, 'lg': 6, 'md': 6, 'sm': 6, 'xs': 12
                 },
                 'content': [{
                     'component': 'VSwitch',
