@@ -95,5 +95,17 @@
             "v1.1": "修复了一些bug。更新后可能需要重启MP。",
             "v1.0": "初始版本。模块化设计，后期可能考虑增加其它收藏夹模块。"
         }
+    },
+    "MergeMessageNotify": {
+        "name": "聚合消息通知",
+        "description": "消息通知，一个插件就够了。",
+        "labels": "消息通知",
+        "version": "1.0",
+        "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/MergeMessageNotify_121.png",
+        "author": "hotlcc",
+        "level": 1,
+        "history": {
+            "v1.0": "初始版本。"
+        }
     }
 }
