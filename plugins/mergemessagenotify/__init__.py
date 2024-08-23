@@ -20,8 +20,8 @@ class MergeMessageNotify(_PluginBase):
     plugin_name = "聚合消息通知"
     # 插件描述
     plugin_desc = "消息通知，一个插件就够了。"
-    # TODO 插件图标
-    plugin_icon = ""
+    # 插件图标
+    plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/MergeMessageNotify_121.png"
     # 插件版本
     plugin_version = "1.0"
     # 插件作者
