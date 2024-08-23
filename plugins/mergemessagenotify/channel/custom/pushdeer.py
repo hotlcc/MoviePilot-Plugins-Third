@@ -1,16 +1,16 @@
 from typing import Tuple, List, Dict, Any
 from urllib.parse import urlencode
+import requests
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
 from app.log import logger
 from app.core.config import settings
-from app.utils.http import RequestUtils
 
 
 class PushDeerChannel(CustomChannel):
     """
-    PushDeer渠道
+    PushDeer渠道 http://www.pushdeer.com
     """
 
     # 组件key
@@ -105,27 +105,32 @@ class PushDeerChannel(CustomChannel):
             return False
         return True
 
-    def __build_url_query(self, title: str, text: str) -> str:
-        """
-        构造url-query
-        """
-        push_key = self.get_config_item(config_key="push_key")
-        query_dict = {
-            "pushkey": push_key,
-            "text": title,
-            "desp": text,
-            "type": "markdown"
-        }
-        return urlencode(query_dict)
-
-    def __build_url(self, title: str, text: str):
+    def __build_url(self) -> str:
         """
         构造url
         """
         server_url: str = self.get_config_item(config_key="server_url")
         server_url = server_url.rstrip("/")
-        query = self.__build_url_query(title=title, text=text)
-        return f"{server_url}/message/push?{query}"
+        return f"{server_url}/message/push"
+
+    def __build_json(self, title: str, text: str, ext_info: dict = {}) -> dict:
+        """
+        构造请求json
+        """
+        ext_info = ext_info or {}
+        # json
+        json = {
+            "pushkey": self.get_config_item(config_key="push_key"),
+            "text": title,
+            "type": "markdown"
+        }
+        # desp
+        desp = text or title
+        image = ext_info.get("image")
+        if image:
+            desp += f"\n\n![]({image})"
+        json["desp"] = desp
+        return json
 
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
         """
@@ -134,23 +139,24 @@ class PushDeerChannel(CustomChannel):
         type_str = type.value if type else None
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
-            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type.value}, 消息类型不受支持")
+            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
+            return
+        if not title:
+            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息标题为空")
             return
         if not self.__check_config():
             return
-        send_url = self.__build_url(title=title, text=text)
+        send_url = self.__build_url()
+        json = self.__build_json(title=title, text=text, ext_info=ext_info)
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
-        res = RequestUtils(timeout=60, proxies=proxies).get_res(send_url)
-        if res:
-            if res.status_code == 200:
-                res_json = res.json() or {}
-                code = res_json.get("code")
-                message = res_json.get("error")
-                if code == 0:
-                    logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
-                else:
-                    logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
+        res = requests.post(url=send_url, json=json, proxies=proxies)
+        res_json = res.json() or {}
+        if res.ok or res_json:
+            code = res_json.get("code")
+            message = res_json.get("error")
+            if code == 0:
+                logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
             else:
-                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
+                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
         else:
-            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, 响应内容为空")
+            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")

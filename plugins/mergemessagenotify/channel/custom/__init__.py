@@ -60,7 +60,7 @@ class CustomChannel(Channel):
             return
         try:
             self.send_message(title="测试消息", text="这是一条测试消息，您收到此消息表示您的渠道配置无误。")
-            logger.info(f"测试一次消息发送成功 - {self.comp_name}")
+            logger.info(f"测试一次消息发送完成 - {self.comp_name}")
         except Exception as e:
             logger.error(f"测试一次消息发送异常 - {self.comp_name}: {str(e)}", exc_info=True)
         finally:

@@ -1,10 +1,9 @@
 from typing import Tuple, List, Dict, Any
-from urllib.parse import urlencode
+import requests
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
 from app.log import logger
-from app.utils.http import RequestUtils
 
 
 class IYUUChannel(CustomChannel):
@@ -57,6 +56,35 @@ class IYUUChannel(CustomChannel):
         elements = [row1, row2, row3]
         return elements, config_suggest
 
+    def __check_config(self) -> bool:
+        """
+        检查配置
+        """
+        if not self.get_config_item(config_key="token"):
+            logger.warn(f"配置检查不通过: channel = {self.comp_name}, IYUU令牌无效")
+            return False
+        return True
+
+    def __build_url(self) -> str:
+        """
+        构造url
+        """
+        token = self.get_config_item(config_key="token")
+        return f"https://iyuu.cn/{token}.send"
+
+    def __build_params(self, title: str, text: str) -> dict:
+        """
+        构造请求参数
+        """
+        # params
+        params = {
+            "text": title
+        }
+        # desp
+        desp = text or title
+        params["desp"] = desp
+        return params
+
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
         """
         发送消息
@@ -64,28 +92,23 @@ class IYUUChannel(CustomChannel):
         type_str = type.value if type else None
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
-            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type.value}, 消息类型不受支持")
+            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return
-        token: str = self.get_config_item("token")
-        if not token:
-            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type.value}, 未配置Token")
+        if not title:
+            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息标题为空")
             return
-        query = urlencode({
-            "text": title,
-            "desp": text
-        })
-        send_url = f"https://iyuu.cn/{token}.send?{query}"
-        res = RequestUtils(timeout=60).get_res(send_url)
-        if res:
-            if res.status_code == 200:
-                res_json = res.json() or {}
-                code = res_json.get("errcode")
-                message = res_json.get("errmsg")
-                if code == 0:
-                    logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
-                else:
-                    logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
+        if not self.__check_config():
+            return
+        send_url = self.__build_url()
+        params = self.__build_params(title=title, text=text)
+        res = requests.post(url=send_url, params=params)
+        res_json = res.json() or {}
+        if res.ok or res_json:
+            code = res_json.get("errcode")
+            message = res_json.get("errmsg")
+            if code == 0:
+                logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
             else:
-                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
+                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
         else:
-            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, 响应内容为空")
+            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")

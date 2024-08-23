@@ -11,7 +11,7 @@ from app.core.config import settings
 
 class NtfyChannel(CustomChannel):
     """
-    Ntfy渠道
+    Ntfy渠道 https://ntfy.sh
     """
 
     # 组件key
@@ -157,7 +157,7 @@ class NtfyChannel(CustomChannel):
             return False
         return True
 
-    def __build_url(self):
+    def __build_url(self) -> str:
         """
         构造url
         """
@@ -185,13 +185,17 @@ class NtfyChannel(CustomChannel):
         """
         构造headers
         """
+        # headers
         headers = {
-            "X-Markdown": "false"
+            "X-Markdown": "true"
         }
+        # X-Title
         if title:
             headers["X-Title"] = title.encode(encoding="utf-8")
+        # X-Tags
         if type:
             headers["X-Tags"] = type.value.encode(encoding="utf-8")
+        # Authorization
         token = self.get_config_item(config_key="token")
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -203,6 +207,17 @@ class NtfyChannel(CustomChannel):
                 headers["Authorization"] = f"Basic {basic_auth_value}"
         return headers
 
+    def __build_data(self, title: str, text: str, ext_info: dict = {}) -> bytes:
+        """
+        构造请求数据
+        """
+        ext_info = ext_info or {}
+        data = text or title
+        image = ext_info.get("image")
+        if image:
+            data += f"\n\n![]({image})"
+        return data.encode(encoding="utf-8")
+
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
         """
         发送消息
@@ -210,25 +225,22 @@ class NtfyChannel(CustomChannel):
         type_str = type.value if type else None
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
-            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type.value}, 消息类型不受支持")
+            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return
         if not self.__check_config():
             return
         send_url = self.__build_url()
         headers = self.__build_headers(title=title, type=type)
-        data = text.encode(encoding="utf-8") if text else None
+        data = self.__build_data(title=title, text=text, ext_info=ext_info)
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
-        res = requests.post(url=send_url, headers=headers, data=data, proxies=proxies, timeout=60)
-        if res:
-            if res.status_code == 200:
-                res_json = res.json() or {}
-                code = res_json.get("code")
-                message = res_json.get("error")
-                if not code:
-                    logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
-                else:
-                    logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
+        res = requests.post(url=send_url, headers=headers, data=data, proxies=proxies)
+        res_json = res.json() or {}
+        if res.ok or res_json:
+            code = res_json.get("code")
+            message = res_json.get("error")
+            if not code:
+                logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
             else:
-                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
+                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
         else:
-            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, 响应内容为空")
+            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")

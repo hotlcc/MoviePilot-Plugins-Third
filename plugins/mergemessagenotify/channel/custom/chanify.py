@@ -1,10 +1,9 @@
 from typing import Tuple, List, Dict, Any
+import requests
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
 from app.log import logger
-from app.utils.http import RequestUtils
-from app.core.config import settings
 
 
 class ChanifyChannel(CustomChannel):
@@ -79,12 +78,26 @@ class ChanifyChannel(CustomChannel):
             return False
         return True
 
-    def __build_url(self):
+    def __build_url(self) -> str:
         """
         构造url
         """
         token = self.get_config_item(config_key="token")
         return f"https://api.chanify.net/v1/sender/{token}"
+
+    def __build_json(self, title: str, text: str) -> dict:
+        """
+        构造请求json
+        """
+        # json
+        json = {
+            "title": title,
+            "text": text,
+        }
+        # sound
+        if self.get_config_item(config_key="sound"):
+            json["sound"] = 1
+        return json
 
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
         """
@@ -93,28 +106,20 @@ class ChanifyChannel(CustomChannel):
         type_str = type.value if type else None
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
-            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type.value}, 消息类型不受支持")
+            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return
         if not self.__check_config():
             return
         send_url = self.__build_url()
-        data = {
-            "title": title,
-            "text": text
-        }
-        if self.get_config_item(config_key="sound"):
-            data["sound"] = 1
-        res = RequestUtils(timeout=60).post_res(send_url, data=data)
-        if res:
-            if res.status_code == 200:
-                res_json = res.json() or {}
-                code = res_json.get("res")
-                message = res_json.get("msg")
-                if not code:
-                    logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
-                else:
-                    logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
+        json = self.__build_json(title=title, text=text)
+        res = requests.post(url=send_url, json=json)
+        res_json = res.json() or {}
+        if res.ok or res_json:
+            code = res_json.get("res")
+            message = res_json.get("msg")
+            if not code:
+                logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
             else:
-                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
+                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
         else:
-            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, 响应内容为空")
+            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")

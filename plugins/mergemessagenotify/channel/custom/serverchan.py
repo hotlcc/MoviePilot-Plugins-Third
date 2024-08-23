@@ -1,10 +1,10 @@
 from typing import Tuple, List, Dict, Any
 from enum import Enum
+import requests
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
 from app.log import logger
-from app.utils.http import RequestUtils
 
 
 class SendChannel(Enum):
@@ -121,25 +121,30 @@ class ServerChanChannel(CustomChannel):
             return False
         return True
 
-    def __build_url(self):
+    def __build_url(self) -> str:
         """
         构造url
         """
         send_key = self.get_config_item(config_key="send_key")
         return f"https://sctapi.ftqq.com/{send_key}.send"
 
-    def __build_json(self, title: str, text: str, ext_info: dict = {}):
+    def __build_json(self, title: str, text: str, ext_info: dict = {}) -> dict:
         """
         构造请求json
         """
+        ext_info = ext_info or {}
+        # json
         json = {
             "title": title,
             "noip": self.get_config_item(config_key="noip") or False
         }
+        # desp
+        desp = text or title
         image = ext_info.get("image")
         if image:
-            text += f"\n\n![]({image})"
-        json["desp"] = text
+            desp += f"\n\n![]({image})"
+        json["desp"] = desp
+        # channel
         channels = self.get_config_item(config_key="channel")
         if channels:
             channels = channels[0:2]
@@ -155,23 +160,23 @@ class ServerChanChannel(CustomChannel):
         type_str = type.value if type else None
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
-            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type.value}, 消息类型不受支持")
+            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
+            return
+        if not title:
+            logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息标题为空")
             return
         if not self.__check_config():
             return
         send_url = self.__build_url()
         json = self.__build_json(title=title, text=text, ext_info=ext_info)
-        res = RequestUtils(timeout=60, content_type="application/json").post_res(send_url, json=json)
-        if res:
-            if res.status_code == 200:
-                res_json = res.json() or {}
-                code = res_json.get("code")
-                message = res_json.get("message")
-                if code == 0:
-                    logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
-                else:
-                    logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
+        res = requests.post(url=send_url, json=json)
+        res_json = res.json() or {}
+        if res.ok or res_json:
+            code = res_json.get("code")
+            message = res_json.get("message")
+            if code == 0:
+                logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
             else:
-                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
+                logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
         else:
-            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, 响应内容为空")
+            logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
