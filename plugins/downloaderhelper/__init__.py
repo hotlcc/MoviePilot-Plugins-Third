@@ -1228,10 +1228,8 @@ class DownloaderHelper(_PluginBase):
             return None
         magnet_uri_obj = urlparse(magnet_uri)
         query = cls.__parse_url_query(magnet_uri_obj.query)
-        tr = query['tr']
-        if not tr or len(tr) <= 0:
-            return None
-        return tr[0]
+        tr = query.get('tr')
+        return tr[0] if tr else None
 
     @classmethod
     def __parse_tracker_for_transmission(cls, torrent: Torrent) -> Optional[str]:
