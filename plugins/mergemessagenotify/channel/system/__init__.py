@@ -8,6 +8,8 @@ from app.log import logger
 from app.schemas.types import MessageChannel, SystemConfigKey, NotificationType
 from app.db.systemconfig_oper import SystemConfigOper
 from app.schemas.message import NotificationSwitch
+from app.core.module import ModuleManager
+from app.plugins.mergemessagenotify.util import ThreadLocalUtil
 
 
 class SystemChannel(Channel):
@@ -35,12 +37,12 @@ class SystemChannel(Channel):
             except Exception as e:
                 logger.error(f"渠道配置应用异常 - {self.comp_name}: {str(e)}", exc_info=True)
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
         发送消息
         """
         # 系统渠道不需要实现发送消息
-        pass
+        return False
 
     def get_settings(self, include: Set[str] = None, exclude: Set[str] = None) -> Dict[str, Any]:
         """
@@ -48,23 +50,43 @@ class SystemChannel(Channel):
         """
         return settings.dict(include=include, exclude=exclude) if settings else {}
 
-    def update_settings(self, config: dict):
+    def __update_setting(self, key: str, value: any) -> bool:
+        """
+        更新系统配置项
+        :return: 是否更新（更新前后是否有变化）
+        """
+        if key == "undefined":
+            return False
+        if not hasattr(settings, key):
+            return False
+        if value == "None":
+            value = None
+        # 更新前的运行时配置值
+        old_runtime_value = getattr(settings, key)
+        # 更新运行时值和环境变量文件值
+        setattr(settings, key, value)
+        value = str(value) if value is not None else ""
+        set_key(settings.CONFIG_PATH / "app.env", key, value)
+        # 是否有更新
+        has_change = (value != old_runtime_value)
+        return has_change
+
+    def update_settings(self, config: dict) -> bool:
         """
         更新系统配置
+        :return: 是否更新（更新前后是否有变化）
         """
         config = config or {}
+        change_count = 0
         for k, v in config.items():
-            if k == "undefined":
-                continue
-            if hasattr(settings, k):
-                if v == "None":
-                    v = None
-                setattr(settings, k, v)
-                if v is None:
-                    v = ''
-                else:
-                    v = str(v)
-                set_key(settings.CONFIG_PATH / "app.env", k, v)
+            has_change = self.__update_setting(k, v)
+            if has_change:
+                change_count += 1
+        has_change =  change_count > 0
+        # 如果有变化就标记需要重载系统模块
+        if has_change:
+            self.mark_need_reload_system_modules()
+        return has_change
 
     def get_enable_notify_types(self, channel: MessageChannel) -> List[str]:
         """
@@ -104,6 +126,36 @@ class SystemChannel(Channel):
             switch[channel_key] = type.name in enable_notify_types
             switchs.append(switch)
         system_config_oper.set(SystemConfigKey.NotificationChannels, switchs)
+
+    def get_system_module_instance(self, module_id: str) -> Any:
+        """
+        根据模块id获取系统模块实例
+        """
+        return ModuleManager().get_running_module(module_id=module_id)
+
+    def init_system_module_instance(self, module_id: str):
+        """
+        根据模块id初始化系统模块实例
+        """
+        try:
+            system_module_instance = self.get_system_module_instance(module_id=module_id)
+            if not system_module_instance:
+                return
+            if not hasattr(system_module_instance, "init_module"):
+                return
+            system_module_instance.init_module()
+            logger.info(f"系统模块实例初始化成功: comp_name = {self.comp_name}, module_id = {module_id}")
+        except Exception as e:
+            logger.error(f"系统模块实例初始化异常: comp_name = {self.comp_name}, module_id = {module_id}, {str(e)}", exc_info=True)
+
+    def mark_need_reload_system_modules(self):
+        """
+        标记需要重载系统模块
+        """
+        try:
+            ThreadLocalUtil.set("need_reload_system_modules", True)
+        except Exception:
+            pass
 
     @abstractmethod
     def apply_config(self, config: dict):

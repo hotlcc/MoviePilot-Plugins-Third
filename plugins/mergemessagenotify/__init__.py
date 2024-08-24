@@ -2,8 +2,10 @@ from typing import OrderedDict, Dict, Any, List, Tuple, Type, Union
 from dotenv import set_key
 import inspect
 import os
+from threading import Thread
 
 from app.helper.module import ModuleHelper
+from app.core.module import ModuleManager
 from app.log import logger
 from app.plugins import _PluginBase
 from app.plugins.mergemessagenotify.channel import Channel
@@ -13,6 +15,8 @@ from app.core.config import settings
 from app.db.systemconfig_oper import SystemConfigOper
 from app.schemas.types import EventType, NotificationType
 from app.core.event import eventmanager, Event
+from app.plugins.mergemessagenotify.module import ChannelStrategy
+from app.plugins.mergemessagenotify.util import ThreadLocalUtil
 
 
 class MergeMessageNotify(_PluginBase):
@@ -41,10 +45,13 @@ class MergeMessageNotify(_PluginBase):
 
     # 配置相关
     # 插件缺省配置
-    __config_default: Dict[str, Any] = {}
+    __config_default: Dict[str, Any] = {
+        "channel_strategy": "ALL_SELECTED"
+    }
     # 插件用户配置
     __config: Dict[str, Any] = {}
 
+    @ThreadLocalUtil.auto_delete(keys=["need_reload_system_modules"])
     def init_plugin(self, config: dict = None):
         """
         生效配置信息
@@ -62,6 +69,8 @@ class MergeMessageNotify(_PluginBase):
         if self.__check_stack_contain_save_config_request():
             # 更新系统当前使用通知渠道
             self.__apply_config(config=config)
+            # 重载系统模块
+            self.__reload_system_modules()
 
     def get_state(self) -> bool:
         """
@@ -116,6 +125,7 @@ class MergeMessageNotify(_PluginBase):
             "value": comp_obj.comp_key
         } for _, comp_obj in self.__comp_objs.items() if comp_obj and comp_obj.comp_key and comp_obj.comp_name]
         # 头部元素
+        channel_strategy_hint_desc = "；".join([item.name_ + "-" + item.desc for item in ChannelStrategy])
         header_elements = [{
             'component': 'VRow',
             'content': [{
@@ -129,7 +139,7 @@ class MergeMessageNotify(_PluginBase):
                     'props': {
                         'model': 'enable',
                         'label': '启用插件',
-                        'hint': '插件总开关'
+                        'hint': '插件总开关，仅针对第三方自定义渠道，不包含系统渠道。'
                     }
                 }]
             }]
@@ -139,7 +149,7 @@ class MergeMessageNotify(_PluginBase):
                 'component': 'VCol',
                 'props': {
                     'cols': 12,
-                    'xxl': 12, 'xl': 12, 'lg': 12, 'md': 12, 'sm': 12, 'xs': 12
+                    'xxl': 8, 'xl': 8, 'lg': 8, 'md': 8, 'sm': 6, 'xs': 12
                 },
                 'content': [{
                     'component': 'VSelect',
@@ -150,7 +160,25 @@ class MergeMessageNotify(_PluginBase):
                         'chips': True,
                         'clearable': True,
                         'items': channel_select_items,
-                        'hint': '消息通知渠道总开关。'
+                        'hint': '选填。消息通知渠道总开关，只有选择的渠道才会发送消息。'
+                    }
+                }]
+            }, {
+                'component': 'VCol',
+                'props': {
+                    'cols': 12,
+                    'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                },
+                'content': [{
+                    'component': 'VSelect',
+                    'props': {
+                        'model': 'channel_strategy',
+                        'label': '渠道策略',
+                        'items': [{
+                            'title': item.name_,
+                            'value': item.name
+                        } for item in ChannelStrategy],
+                        'hint': f'选填。【当前使用通知渠道】选择的第三方渠道以何种策略生效：{channel_strategy_hint_desc}。缺省时为“{ChannelStrategy.ALL_SELECTED.name_}”。'
                     }
                 }]
             }]
@@ -180,8 +208,10 @@ class MergeMessageNotify(_PluginBase):
             'component': 'VForm',
             'content': header_elements + comp_elements + foot_elements
         }]
-        # 返回前从系统配置中加载插件配置
-        self.__load_plugin_config()
+        # 处理初始配置：从系统配置中加载组件配置
+        self.__save_system_config()
+        # 处理缺省配置
+        self.__save_default_config()
         return elements, config_suggest
 
     def get_page(self) -> List[dict]:
@@ -523,23 +553,36 @@ class MergeMessageNotify(_PluginBase):
         else:
             return SystemConfigOper().get(key=key)
 
-    def __update_setting(self, key: str, value: Union[list, dict, bool, int, str]):
+    def __update_setting(self, key: str, value: Union[list, dict, bool, int, str]) -> bool:
         """
         更新系统设置
+        :return: 是否更新（更新前后是否有变化）
         """
         if hasattr(settings, key):
+            # 更新前的运行时配置值
+            old_runtime_value = getattr(settings, key)
             if value == "None":
                 value = None
+            # 更新运行时值和环境变量文件值
             setattr(settings, key, value)
             if value is None:
                 value = ""
             else:
                 value = str(value)
             set_key(settings.CONFIG_PATH / "app.env", key, value)
+            # 是否有更新
+            has_change = (value != old_runtime_value)
+            return has_change
         else:
-            SystemConfigOper().set(key=key, value=value)
+            system_config_oper = SystemConfigOper()
+            # 更新前的配置值
+            old_value = system_config_oper.get(key=key)
+            system_config_oper.set(key=key, value=value)
+            # 是否有更新
+            has_change = (value != old_value)
+            return has_change
 
-    def __load_plugin_config(self):
+    def __save_system_config(self):
         """
         从系统配置中加载插件配置
         """
@@ -560,6 +603,22 @@ class MergeMessageNotify(_PluginBase):
         config["enable_channels"] = new_enable_channels
         self.update_config(config=config)
 
+    def __save_default_config(self):
+        """
+        （缺省时）保存默认配置到组件配置中
+        """
+        config_default = self.__config_default or {}
+        if not config_default:
+            return
+        config = self.get_config() or {}
+        config_copy = config.copy()
+        for key, value in config_default.items():
+            if not key or key in config_copy.keys():
+                continue
+            config_copy[key] = value
+        if config_copy != config:
+            self.update_config(config=config_copy)
+
     def __apply_config(self, config: dict):
         """
         应用配置（使系统配置生效）
@@ -570,7 +629,34 @@ class MergeMessageNotify(_PluginBase):
         system_channel_key_prefix = f"{SystemChannel.comp_key}."
         system_enable_channels: List[str] = [enable_channel.removeprefix(system_channel_key_prefix) for enable_channel in enable_channels if enable_channel and enable_channel.startswith(system_channel_key_prefix)]
         message_setting_value: str = ",".join(system_enable_channels)
-        self.__update_setting(key="MESSAGER", value=message_setting_value)
+        has_change = self.__update_setting(key="MESSAGER", value=message_setting_value)
+        if has_change:
+            self.__mark_need_reload_system_modules()
+
+    def __mark_need_reload_system_modules(self):
+        """
+        标记需要重载系统模块
+        """
+        try:
+            ThreadLocalUtil.set("need_reload_system_modules", True)
+        except Exception:
+            pass
+
+    def __reload_system_modules(self):
+        """
+        重载系统模块
+        """
+        if not ThreadLocalUtil.get(key="need_reload_system_modules"):
+            return
+        # 异步操作，避免界面阻塞
+        def __async_reload_system_modules():
+            try:
+                ModuleManager().reload()
+                logger.info("系统模块重载成功")
+            except Exception as e:
+                logger.error(f"系统模块重载异常: {str(e)}", exc_info=True)
+        thread = Thread(target=__async_reload_system_modules)
+        thread.start()
 
     @eventmanager.register(EventType.NoticeMessage)
     def listen_notice_message_event(self, event: Event = None):
@@ -585,6 +671,7 @@ class MergeMessageNotify(_PluginBase):
             logger.info('监听到发送消息通知事件')
             enable_channels: List[str] = self.__get_config_item("enable_channels") or []
             system_channel_key_prefix = f"{SystemChannel.comp_key}."
+            # 启用的自定义渠道集合
             enable_channels = [enable_channel for enable_channel in enable_channels if enable_channel and not enable_channel.startswith(system_channel_key_prefix)]
             if not enable_channels:
                 logger.warn('发送消息通知事件监听任务执行中止: 没有启用任何自定义渠道')
@@ -599,14 +686,32 @@ class MergeMessageNotify(_PluginBase):
                 logger.warn('发送消息通知事件监听任务执行中止: 标题和内容不允许同时为空')
                 return
             type: NotificationType = message_info.get("type")
-            for comp_key, comp_obj in self.__comp_objs.items():
-                if comp_key not in enable_channels:
+            # 渠道策略
+            channel_strategy = self.__get_config_item(config_key="channel_strategy")
+            is_order_success_one: bool = (ChannelStrategy.ORDER_SUCCESS_ONE.name == channel_strategy)
+            # 成功失败数
+            success_count = 0
+            fail_count = 0
+            for enable_channel in enable_channels:
+                # 处理【顺序优先，成功即止】策略
+                if is_order_success_one and success_count > 0:
+                    break
+                if not enable_channel:
+                    continue
+                comp_key = enable_channel
+                comp_obj = self.__comp_objs.get(comp_key)
+                if not comp_obj:
                     continue
                 try:
-                    comp_obj.send_message(title=title, text=text, type=type, ext_info=message_info)
-                    logger.info(f"消息发送执行成功: 渠道 = {comp_obj.comp_name}")
+                    success = comp_obj.send_message(title=title, text=text, type=type, ext_info=message_info)
+                    if success:
+                        success_count += 1
+                    else:
+                        fail_count += 1
+                    logger.info(f"消息发送执行完成: 渠道 = {comp_obj.comp_name} success = {success}")
                 except Exception as e:
+                    fail_count += 1
                     logger.error(f"消息发送执行异常: 渠道 = {comp_obj.comp_name}", exc_info=True)
-            logger.info('发送消息通知事件监听任务执行成功')
+            logger.info(f'发送消息通知事件监听任务执行成功: 成功渠道数 = {success_count}, 失败渠道数 = {fail_count}')
         except Exception as e:
             logger.error(f'发送消息通知事件监听任务执行异常: {str(e)}', exc_info=True)

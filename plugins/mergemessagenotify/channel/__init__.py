@@ -163,7 +163,7 @@ class Channel(ABC):
         pass
 
     @abstractmethod
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
         发送消息
         """

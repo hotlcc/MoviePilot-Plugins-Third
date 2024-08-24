@@ -132,7 +132,7 @@ class PushDeerChannel(CustomChannel):
         json["desp"] = desp
         return json
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
         发送消息
         """
@@ -140,12 +140,12 @@ class PushDeerChannel(CustomChannel):
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
-            return
+            return False
         if not title:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息标题为空")
-            return
+            return False
         if not self.__check_config():
-            return
+            return False
         send_url = self.__build_url()
         json = self.__build_json(title=title, text=text, ext_info=ext_info)
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
@@ -156,7 +156,10 @@ class PushDeerChannel(CustomChannel):
             message = res_json.get("error")
             if code == 0:
                 logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
+                return True
             else:
                 logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
+                return False
         else:
             logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
+            return False

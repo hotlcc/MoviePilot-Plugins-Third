@@ -85,7 +85,7 @@ class IYUUChannel(CustomChannel):
         params["desp"] = desp
         return params
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
         发送消息
         """
@@ -93,12 +93,12 @@ class IYUUChannel(CustomChannel):
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
-            return
+            return False
         if not title:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息标题为空")
-            return
+            return False
         if not self.__check_config():
-            return
+            return False
         send_url = self.__build_url()
         params = self.__build_params(title=title, text=text)
         res = requests.post(url=send_url, params=params)
@@ -108,7 +108,10 @@ class IYUUChannel(CustomChannel):
             message = res_json.get("errmsg")
             if code == 0:
                 logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
+                return True
             else:
                 logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
+                return False
         else:
             logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
+            return False

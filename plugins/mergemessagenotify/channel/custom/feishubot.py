@@ -226,7 +226,7 @@ class FeishuBotChannel(CustomChannel):
             json["sign"] = self.__sign(timestamp=timestamp, secret=secret)
         return json
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
         发送消息
         """
@@ -234,12 +234,12 @@ class FeishuBotChannel(CustomChannel):
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
-            return
+            return False
         if not text:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息内容为空")
-            return
+            return False
         if not self.__check_config():
-            return
+            return False
         send_url = self.__build_url()
         json = self.__build_json(title=title, text=text, ext_info=ext_info)
         res = requests.post(url=send_url, json=json)
@@ -249,7 +249,10 @@ class FeishuBotChannel(CustomChannel):
             message = res_json.get("msg")
             if code == 0:
                 logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
+                return True
             else:
                 logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, code = {code}, message = {message}")
+                return False
         else:
             logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
+            return False

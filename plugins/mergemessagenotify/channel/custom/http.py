@@ -285,7 +285,7 @@ class HttpChannel(CustomChannel):
                 return v
         return None
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
         发送消息
         """
@@ -293,9 +293,9 @@ class HttpChannel(CustomChannel):
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
-            return
+            return False
         if not self.__check_config():
-            return
+            return False
         # 模板变量
         template_variables = self.__get_template_variables(title=title, text=text, type=type, ext_info=ext_info)
         logger.info(f"HTTP请求 >>> 全部模板变量: {template_variables}")
@@ -333,7 +333,10 @@ class HttpChannel(CustomChannel):
         if res:
             if res.ok:
                 logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}, text = {res.text}")
+                return True
             else:
                 logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, status_code = {res.status_code}, reason = {res.reason}")
+                return False
         else:
             logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, 响应为空")
+            return False

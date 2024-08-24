@@ -184,7 +184,7 @@ class EmailChannel(CustomChannel):
         """
         return list(set([item.strip() for item in raw_str.split(",") if item and item.strip()])) if raw_str else []
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}):
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
         发送消息
         """
@@ -192,12 +192,12 @@ class EmailChannel(CustomChannel):
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if (type and enable_notify_types and type.name not in enable_notify_types):
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
-            return
+            return False
         if not text:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息内容为空")
-            return
+            return False
         if not self.__check_config():
-            return
+            return False
         # 发送邮件
         smtp_host= self.get_config_item(config_key="smtp_host")
         smtp_port= self.get_config_item(config_key="smtp_port")
@@ -211,8 +211,10 @@ class EmailChannel(CustomChannel):
             smtp.login(user=username, password=password)
             smtp.sendmail(from_addr=username, to_addrs=to_addrs, msg=message.as_string())
             logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
+            return True
         except Exception as e:
             logger.error(f"发送消息失败: channel = {self.comp_name}, type = {type_str}", exc_info=True)
+            return False
         finally:
             if smtp:
                 smtp.quit()
