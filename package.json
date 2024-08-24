@@ -101,11 +101,12 @@
         "name": "聚合消息通知",
         "description": "消息通知，一个插件就够了。",
         "labels": "消息通知",
-        "version": "1.0",
+        "version": "1.1",
         "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/MergeMessageNotify_121.png",
         "author": "hotlcc",
         "level": 1,
         "history": {
+            "v1.1": "支持配置渠道策略；修复系统渠道配置修改后运行时不生效的问题。插件升级后需要重启MP！！！",
             "v1.0": "初始版本。"
         }
     }
