@@ -201,7 +201,7 @@ class MergeMessageNotify(_PluginBase):
                 }]
             }]
         }]
-        # 收藏组件元素
+        # 组件的元素
         comp_elements = [self.__build_comp_form_element()]
         # 元素
         elements = [{
