@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "3.5.2"
+    plugin_version = "3.5.3"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -2020,7 +2020,7 @@ class DownloaderHelper(_PluginBase):
         count = 0
         if not torrents:
             return count
-        torrents_copy = torrents.copy()
+        torrents_copy = [torrent for torrent in torrents]
         for torrent in torrents_copy:
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，子任务终止')
@@ -2345,7 +2345,7 @@ class DownloaderHelper(_PluginBase):
         count = 0
         if not torrents:
             return count
-        torrents_copy = torrents.copy()
+        torrents_copy = [torrent for torrent in torrents]
         for torrent in torrents_copy:
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，子任务终止')
