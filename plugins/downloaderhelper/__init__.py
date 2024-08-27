@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "3.5.1"
+    plugin_version = "3.5.2"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -1767,7 +1767,7 @@ class DownloaderHelper(_PluginBase):
 
             context.save_result(result=result)
 
-            torrents, error = self.__get_torrents_for_qbittorrent(qbittorrent=qbittorrent)
+            torrents, error = self.__get_torrents_for_qbittorrent(qbittorrent=qbittorrent, with_cache=context.get_use_torrents_cache())
             if error:
                 logger.warn(f'从下载器[{downloader_name}]中获取种子失败，任务终止')
                 return context
@@ -1813,8 +1813,16 @@ class DownloaderHelper(_PluginBase):
             logger.error(f'下载器[{downloader_name}]任务执行失败: {str(e)}', exc_info=True)
         return context
 
-    @cached(cache=TTLCache(maxsize=1, ttl=60))
-    def __get_torrents_for_qbittorrent(self, qbittorrent: Qbittorrent) -> Tuple[List[TorrentDictionary], bool]:
+    def __get_torrents_for_qbittorrent(self, qbittorrent: Qbittorrent, with_cache: bool = False) -> Tuple[List[TorrentDictionary], bool]:
+        """
+        获取qb种子
+        """
+        if not qbittorrent:
+            return None, False
+        return self.__get_torrents_for_qbittorrent_with_cache(qbittorrent=qbittorrent) if with_cache else qbittorrent.get_torrents()
+
+    @cached(cache=TTLCache(maxsize=1, ttl=10))
+    def __get_torrents_for_qbittorrent_with_cache(self, qbittorrent: Qbittorrent) -> Tuple[List[TorrentDictionary], bool]:
         """
         获取qb种子
         """
@@ -2012,13 +2020,15 @@ class DownloaderHelper(_PluginBase):
         count = 0
         if not torrents:
             return count
-        for torrent in torrents:
+        torrents_copy = torrents.copy()
+        for torrent in torrents_copy:
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，子任务终止')
                 return count
             if (self.__delete_single_for_qbittorrent(qbittorrent=qbittorrent, torrent=torrent,
                                                      context=context)):
                 count += 1
+                torrents.remove(torrent)
         logger.info('[QB]批量自动删种结束')
         return count
 
@@ -2088,7 +2098,7 @@ class DownloaderHelper(_PluginBase):
 
             # 获取全部种子
             try:
-                torrents = self.__get_torrents_for_transmission(transmission=transmission)
+                torrents = self.__get_torrents_for_transmission(transmission=transmission, with_cache=context.get_use_torrents_cache())
             except Exception as e:
                 logger.warn(f'从下载器[{downloader_name}]中获取种子失败，任务终止')
                 return context
@@ -2134,8 +2144,22 @@ class DownloaderHelper(_PluginBase):
             logger.error(f'下载器[{downloader_name}]任务执行失败: {str(e)}', exc_info=True)
         return context
 
-    @cached(cache=TTLCache(maxsize=1, ttl=60))
-    def __get_torrents_for_transmission(self, transmission: Transmission) -> List[Torrent]:
+    def __get_torrents_for_transmission(self, transmission: Transmission, with_cache: bool = False) -> List[Torrent]:
+        """
+        获取tr种子
+        """
+        if not transmission:
+            return None, False
+        return self.__get_torrents_for_transmission_with_cache(transmission=transmission) if with_cache else self.__get_torrents_for_transmission_without_cache(transmission=transmission)
+
+    @cached(cache=TTLCache(maxsize=1, ttl=10))
+    def __get_torrents_for_transmission_with_cache(self, transmission: Transmission) -> List[Torrent]:
+        """
+        获取tr种子
+        """
+        return self.__get_torrents_for_transmission_without_cache(transmission=transmission)
+
+    def __get_torrents_for_transmission_without_cache(self, transmission: Transmission) -> List[Torrent]:
         """
         获取tr种子
         """
@@ -2321,13 +2345,15 @@ class DownloaderHelper(_PluginBase):
         count = 0
         if not torrents:
             return count
-        for torrent in torrents:
+        torrents_copy = torrents.copy()
+        for torrent in torrents_copy:
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，子任务终止')
                 return count
             if (self.__delete_single_for_transmission(transmission=transmission, torrent=torrent,
                                                       context=context)):
                 count += 1
+                torrents.remove(torrent)
         logger.info('[TR]批量自动删种结束')
         return count
 
@@ -3107,7 +3133,8 @@ class DownloaderHelper(_PluginBase):
         context = TaskContext().enable_seeding(False) \
             .enable_tagging(False) \
             .enable_delete(True) \
-            .set_download_file_deleted_event_data(event.event_data)
+            .set_download_file_deleted_event_data(event.event_data) \
+            .set_use_torrents_cache(True)
         self.__async_block_run(context=context)
         logger.info('源文件删除事件监听任务执行结束')
 

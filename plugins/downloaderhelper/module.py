@@ -105,6 +105,9 @@ class TaskContext:
         # 操作用户名
         self.__username: Optional[str] = None
 
+        # 是否使用种子缓存
+        self.__use_torrents_cache: bool = False
+
     def select_downloader(self, downloader_id: str):
         """
         选择下载器
@@ -284,6 +287,19 @@ class TaskContext:
         获取操作用户名
         """
         return self.__username
+
+    def set_use_torrents_cache(self, use_torrents_cache: bool):
+        """
+        设置是否使用种子缓存
+        """
+        self.__use_torrents_cache = use_torrents_cache
+        return self
+
+    def get_use_torrents_cache(self) -> bool:
+        """
+        获取是否使用种子缓存
+        """
+        return self.__use_torrents_cache
 
 
 class TorrentField(Enum):
