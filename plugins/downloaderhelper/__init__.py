@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "3.5.3"
+    plugin_version = "3.5.4"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -2020,14 +2020,18 @@ class DownloaderHelper(_PluginBase):
         count = 0
         if not torrents:
             return count
-        torrents_copy = torrents[:]
-        for torrent in torrents_copy:
+        # 要从列表中移除的种子
+        torrents_delete = []
+        for torrent in torrents:
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，子任务终止')
                 return count
             if (self.__delete_single_for_qbittorrent(qbittorrent=qbittorrent, torrent=torrent,
                                                      context=context)):
                 count += 1
+                torrents_delete.append(torrent)
+        if torrents_delete:
+            for torrent in torrents_delete:
                 torrents.remove(torrent)
         logger.info('[QB]批量自动删种结束')
         return count
@@ -2345,14 +2349,18 @@ class DownloaderHelper(_PluginBase):
         count = 0
         if not torrents:
             return count
-        torrents_copy = torrents[:]
-        for torrent in torrents_copy:
+        # 要从列表中移除的种子
+        torrents_delete = []
+        for torrent in torrents:
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，子任务终止')
                 return count
             if (self.__delete_single_for_transmission(transmission=transmission, torrent=torrent,
                                                       context=context)):
                 count += 1
+                torrents_delete.append(torrent)
+        if torrents_delete:
+            for torrent in torrents_delete:
                 torrents.remove(torrent)
         logger.info('[TR]批量自动删种结束')
         return count
