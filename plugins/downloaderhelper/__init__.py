@@ -2020,7 +2020,7 @@ class DownloaderHelper(_PluginBase):
         count = 0
         if not torrents:
             return count
-        torrents_copy = [torrent for torrent in torrents]
+        torrents_copy = torrents[:]
         for torrent in torrents_copy:
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，子任务终止')
@@ -2345,7 +2345,7 @@ class DownloaderHelper(_PluginBase):
         count = 0
         if not torrents:
             return count
-        torrents_copy = [torrent for torrent in torrents]
+        torrents_copy = torrents[:]
         for torrent in torrents_copy:
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，子任务终止')
