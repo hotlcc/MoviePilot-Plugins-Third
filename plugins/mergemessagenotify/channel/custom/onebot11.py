@@ -1,5 +1,7 @@
 from typing import Dict, Any, Tuple, List, Union
 import requests
+from urllib.parse import quote
+from string import Template
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
@@ -21,7 +23,9 @@ class OneBot11Channel(CustomChannel):
 
     # 配置相关
     # 组件缺省配置
-    config_default: Dict[str, Any] = {}
+    config_default: Dict[str, Any] = {
+        "message_template": "[CQ:image,file=${image}]\n${title}\n${text}"
+    }
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         """
@@ -33,6 +37,7 @@ class OneBot11Channel(CustomChannel):
         # 合并默认配置
         config_suggest.update(self.config_default)
         # elements
+        message_template = self.config_default.get("message_template")
         row1 = {
             'component': 'VRow',
             'content': [{
@@ -89,6 +94,58 @@ class OneBot11Channel(CustomChannel):
                 'content': [{
                     'component': 'VSwitch',
                     'props': {
+                        'model': '_config_message_template',
+                        'label': '配置消息模板',
+                        'hint': '点击展开消息模板配置窗口。'
+                    }
+                }]
+            }, {
+                'component': 'VDialog',
+                'props': {
+                    'model': '_config_message_template',
+                    'max-width': '40rem'
+                },
+                'content': [{
+                    'component': 'VCard',
+                    'props': {
+                        'title': '配置消息模板',
+                        'style': {
+                            'padding': '0 20px 20px 20px'
+                        }
+                    },
+                    'content': [{
+                        'component': 'VDialogCloseBtn',
+                        'props': {
+                            'model': '_config_message_template'
+                        }
+                    }, {
+                        'component': 'VRow',
+                        'content': [{
+                            'component': 'VCol',
+                            'props': {
+                                'cols': 12
+                            },
+                            'content': [{
+                                'component': 'VTextarea',
+                                'props': {
+                                    'model': 'message_template',
+                                    'label': '消息模板',
+                                    'hint': '选填。消息模板，支持的模板变量见日志，使用时通过“${}”替换变量值，例如：${title}；缺省内容同空值占位。',
+                                    'placeholder': message_template
+                                }
+                            }]
+                        }]
+                    }]
+                }]
+            }, {
+                'component': 'VCol',
+                'props': {
+                    'cols': 12,
+                    'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                },
+                'content': [{
+                    'component': 'VSwitch',
+                    'props': {
                         'model': 'enable_proxy',
                         'label': '使用代理',
                         'hint': '推送消息时是否使用网络代理。'
@@ -98,7 +155,7 @@ class OneBot11Channel(CustomChannel):
                 'component': 'VCol',
                 'props': {
                     'cols': 12,
-                    'xxl': 8, 'xl': 8, 'lg': 8, 'md': 8, 'sm': 6, 'xs': 12
+                    'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
                 },
                 'content': [{
                     'component': 'VAlert',
@@ -112,7 +169,7 @@ class OneBot11Channel(CustomChannel):
                             'href': 'https://github.com/botuniverse/onebot-11',
                             'target': '_blank'
                         },
-                        'text': '点击这里了解什么是 OneBot-11？'
+                        'text': '点击了解OneBot-11'
                     }]
                 }]
             }]
@@ -194,19 +251,42 @@ class OneBot11Channel(CustomChannel):
             logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, user_id = {user_id}, group_id = {group_id}, status_code = {res.status_code}, reason = {res.reason}")
             return False
 
-    def __build_message(self, title: str, text: str, ext_info: dict = {}) -> str:
+    def __get_template_variables(self, title: str, text: str, type: NotificationType, ext_info: dict) -> dict:
         """
-        构造消息
+        获取全部模板变量
         """
-        message = ""
-        if title:
-            message += f"【{title}】\n\n"
-        if text:
-            message += f"{text}\n\n"
-        image = ext_info.get("image")
-        if image:
-            message += f"[CQ:image,file={image}]\n\n"
-        return message
+        # 自定义的
+        custom_template_variables = {}
+        # 预置的
+        preset_template_variables = ext_info.copy() if ext_info else {}
+        preset_template_variables.update({
+            "title": title,
+            "text": text,
+            "type": type.value if type else None
+        })
+        # 合并的
+        result = custom_template_variables.copy()
+        result.update(preset_template_variables)
+        return result
+
+    @classmethod
+    def __parse_template_str(cls, template_str: str, template_variables: dict, url_encode: bool = False) -> str:
+        """
+        解析模板字符串
+        """
+        if not template_str or not template_variables:
+            return template_str
+        if url_encode:
+            template_variables_temp = {}
+            for key, value in template_variables.items():
+                if not key:
+                    continue
+                if value != None:
+                    value = quote(str(value))
+                template_variables_temp[key] = value
+            template_variables = template_variables_temp
+        template = Template(template_str)
+        return template.safe_substitute(template_variables)
 
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
@@ -219,8 +299,16 @@ class OneBot11Channel(CustomChannel):
             return False
         if not self.__check_config():
             return False
+        # 模板变量
+        template_variables = self.__get_template_variables(title=title, text=text, type=type, ext_info=ext_info)
+        logger.info(f">>> 全部模板变量: {template_variables}")
+        # 发送url
         send_url = self.__build_url()
-        message = self.__build_message(title=title, text=text, ext_info=ext_info)
+        # 消息模板
+        message_template = self.get_config_item(config_key="message_template")
+        # 消息
+        message = self.__parse_template_str(template_str=message_template, template_variables=template_variables)
+        # 代理开关
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
         # 成功失败数
         success_count = 0
