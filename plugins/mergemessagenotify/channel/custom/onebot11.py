@@ -1,7 +1,5 @@
 from typing import Dict, Any, Tuple, List, Union
 import requests
-from urllib.parse import quote
-from string import Template
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
@@ -24,7 +22,15 @@ class OneBot11Channel(CustomChannel):
     # 配置相关
     # 组件缺省配置
     config_default: Dict[str, Any] = {
-        "message_template": "[CQ:image,file=${image}]\n${title}\n${text}"
+        "message_template": '% if image:\n'
+                            '[CQ:image,file=${image}]\n'
+                            '% endif\n'
+                            '% if title:\n'
+                            '${title}\n'
+                            '% endif\n'
+                            '% if text:\n'
+                            '${text}\n'
+                            '% endif'
     }
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
@@ -130,7 +136,8 @@ class OneBot11Channel(CustomChannel):
                                 'props': {
                                     'model': 'message_template',
                                     'label': '消息模板',
-                                    'hint': '选填。消息模板，支持的模板变量见日志，使用时通过“${}”替换变量值，例如：${title}；缺省内容同空值占位。',
+                                    'rows': 8,
+                                    'hint': '选填。消息模板，语法同Mako，支持的变量见日志；模板示例：${title}；缺省内容同空值占位。',
                                     'placeholder': message_template
                                 }
                             }]
@@ -251,43 +258,6 @@ class OneBot11Channel(CustomChannel):
             logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, user_id = {user_id}, group_id = {group_id}, status_code = {res.status_code}, reason = {res.reason}")
             return False
 
-    def __get_template_variables(self, title: str, text: str, type: NotificationType, ext_info: dict) -> dict:
-        """
-        获取全部模板变量
-        """
-        # 自定义的
-        custom_template_variables = {}
-        # 预置的
-        preset_template_variables = ext_info.copy() if ext_info else {}
-        preset_template_variables.update({
-            "title": title,
-            "text": text,
-            "type": type.value if type else None
-        })
-        # 合并的
-        result = custom_template_variables.copy()
-        result.update(preset_template_variables)
-        return result
-
-    @classmethod
-    def __parse_template_str(cls, template_str: str, template_variables: dict, url_encode: bool = False) -> str:
-        """
-        解析模板字符串
-        """
-        if not template_str or not template_variables:
-            return template_str
-        if url_encode:
-            template_variables_temp = {}
-            for key, value in template_variables.items():
-                if not key:
-                    continue
-                if value != None:
-                    value = quote(str(value))
-                template_variables_temp[key] = value
-            template_variables = template_variables_temp
-        template = Template(template_str)
-        return template.safe_substitute(template_variables)
-
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
         发送消息
@@ -300,14 +270,14 @@ class OneBot11Channel(CustomChannel):
         if not self.__check_config():
             return False
         # 模板变量
-        template_variables = self.__get_template_variables(title=title, text=text, type=type, ext_info=ext_info)
+        template_variables = self.build_template_variables(title=title, text=text, type=type, ext_info=ext_info)
         logger.info(f">>> 全部模板变量: {template_variables}")
         # 发送url
         send_url = self.__build_url()
         # 消息模板
         message_template = self.get_config_item(config_key="message_template")
         # 消息
-        message = self.__parse_template_str(template_str=message_template, template_variables=template_variables)
+        message = self.render_template(text=message_template, variables=template_variables)
         # 代理开关
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
         # 成功失败数

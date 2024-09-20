@@ -1,8 +1,6 @@
 from typing import Tuple, List, Dict, Any
 import requests
-from urllib.parse import quote
 import json
-from string import Template
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
@@ -178,7 +176,7 @@ class HttpChannel(CustomChannel):
                         'type': 'info',
                         'variant': 'tonal'
                     },
-                    'text': '支持的模板变量见日志，使用时通过“${}”替换变量值，例如：${title}。'
+                    'text': '模板语法同Mako，支持的变量见日志；模板示例：${title}。'
                 }]
             }]
         }
@@ -235,43 +233,18 @@ class HttpChannel(CustomChannel):
             result[key] = value
         return result
 
-    def __get_template_variables(self, title: str, text: str, type: NotificationType, ext_info: dict) -> dict:
+    def build_template_variables(self, title: str, text: str, type: NotificationType, ext_info: dict) -> dict:
         """
-        获取全部模板变量，包含预置的和自定义的
+        构造模板变量
         """
-        # 自定义的
-        template_variables = self.get_config_item(config_key="template_variables")
-        custom_template_variables = self.__str_to_dict(s=template_variables) or {}
         # 预置的
-        preset_template_variables = ext_info.copy() if ext_info else {}
-        preset_template_variables.update({
-            "title": title,
-            "text": text,
-            "type": type.value if type else None
-        })
-        # 合并的
-        result = custom_template_variables.copy()
-        result.update(preset_template_variables)
-        return result
-
-    @classmethod
-    def __parse_template_str(cls, s: str, template_variables: dict, url_encode: bool = False) -> str:
-        """
-        解析模板字符串
-        """
-        if not s or not template_variables:
-            return s
-        if url_encode:
-            template_variables_temp = {}
-            for key, value in template_variables.items():
-                if not key:
-                    continue
-                if value != None:
-                    value = quote(str(value))
-                template_variables_temp[key] = value
-            template_variables = template_variables_temp
-        template = Template(s)
-        return template.safe_substitute(template_variables)
+        template_variables = super().build_template_variables(title=title, text=text, type=type, ext_info=ext_info)
+        # 自定义的
+        custom_template_variables = self.get_config_item(config_key="template_variables")
+        custom_template_variables = self.__str_to_dict(s=custom_template_variables) or {}
+        # 合并
+        template_variables.update(custom_template_variables)
+        return template_variables
 
     @classmethod
     def __get_dict_value_ignorecase(cls, data: Dict[str, any], key: str) -> any:
@@ -297,28 +270,28 @@ class HttpChannel(CustomChannel):
         if not self.__check_config():
             return False
         # 模板变量
-        template_variables = self.__get_template_variables(title=title, text=text, type=type, ext_info=ext_info)
+        template_variables = self.build_template_variables(title=title, text=text, type=type, ext_info=ext_info)
         logger.info(f"HTTP请求 >>> 全部模板变量: {template_variables}")
         # 请求方法
         method = self.get_config_item(config_key="method")
         logger.info(f"HTTP请求 >>> 请求方法: {method}")
         # 请求URL
         url = self.get_config_item(config_key="url")
-        url = self.__parse_template_str(s=url, template_variables=template_variables, url_encode=True)
+        url = self.render_template(text=url, variables=template_variables, url_encode=True)
         logger.info(f"HTTP请求 >>> 请求URL: {url}")
         # 请求头
         headers = self.get_config_item(config_key="headers")
-        headers = self.__parse_template_str(s=headers, template_variables=template_variables)
+        headers = self.render_template(text=headers, variables=template_variables)
         headers = self.__str_to_dict(s=headers)
         logger.info(f"HTTP请求 >>> 请求头: {headers}")
         # 请求参数
         params = self.get_config_item(config_key="params")
-        params = self.__parse_template_str(s=params, template_variables=template_variables)
+        params = self.render_template(text=params, variables=template_variables)
         params = self.__str_to_dict(s=params)
         logger.info(f"HTTP请求 >>> 请求参数: {params}")
         # 请求体
         body = self.get_config_item(config_key="body")
-        body = self.__parse_template_str(s=body, template_variables=template_variables)
+        body = self.render_template(text=body, variables=template_variables)
         logger.info(f"HTTP请求 >>> 请求体: {body}")
         is_json = self.__is_json(s=body)
         content_type = self.__get_dict_value_ignorecase(data=headers, key="Content-Type")

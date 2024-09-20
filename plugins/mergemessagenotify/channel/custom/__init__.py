@@ -1,5 +1,9 @@
+from urllib.parse import quote
+
 from app.plugins.mergemessagenotify.channel import Channel
 from app.log import logger
+from app.plugins.mergemessagenotify.util import TemplateUtil
+from app.schemas.types import NotificationType
 
 
 class CustomChannel(Channel):
@@ -67,6 +71,41 @@ class CustomChannel(Channel):
             # 关闭一次性开关
             config['test_once'] = False
             self.update_config(config=config)
+
+    def build_template_variables(self, title: str, text: str, type: NotificationType, ext_info: dict) -> dict:
+        """
+        构造模板变量
+        """
+        template_variables = ext_info.copy() if ext_info else {}
+        template_variables.update({
+            "title": title,
+            "text": text,
+            "type": type.value if type else None
+        })
+        return template_variables
+
+    def __url_encode_dict_value(self, obj: dict) -> dict:
+        """
+        UrlEncode词典值
+        """
+        if not obj:
+            return obj
+        obj_temp = {}
+        for key, value in obj.items():
+            if not key:
+                continue
+            if value != None:
+                value = quote(str(value))
+            obj_temp[key] = value
+        return obj_temp
+
+    def render_template(self, text: str, variables: dict, url_encode: bool = False) -> str:
+        """
+        渲染模板
+        """
+        if url_encode:
+            variables = self.__url_encode_dict_value(obj=variables)
+        return TemplateUtil.render_text(text=text, variables=variables)
 
     def init_comp(self):
         """
