@@ -17,7 +17,7 @@ class OneBot11Channel(CustomChannel):
     # 组件名称
     comp_name: str = "OneBot-11"
     # 组件顺序
-    comp_order: int = CustomChannel.comp_order * 100 + 11
+    comp_order: int = CustomChannel.comp_order * 100 + 12
 
     # 配置相关
     # 组件缺省配置

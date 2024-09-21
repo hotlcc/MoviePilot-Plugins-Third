@@ -21,7 +21,7 @@ class DingtalkRobotChannel(CustomChannel):
     # 组件名称
     comp_name: str = "钉钉机器人"
     # 组件顺序
-    comp_order: int = CustomChannel.comp_order * 100 + 8
+    comp_order: int = CustomChannel.comp_order * 100 + 9
 
     # 配置相关
     # 组件缺省配置

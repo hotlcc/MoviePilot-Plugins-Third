@@ -21,7 +21,7 @@ class FeishuBotChannel(CustomChannel):
     # 组件名称
     comp_name: str = "飞书机器人"
     # 组件顺序
-    comp_order: int = CustomChannel.comp_order * 100 + 10
+    comp_order: int = CustomChannel.comp_order * 100 + 11
 
     # 配置相关
     # 组件缺省配置

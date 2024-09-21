@@ -104,11 +104,12 @@
         "name": "聚合消息通知",
         "description": "消息通知，一个插件就够了。",
         "labels": "消息通知",
-        "version": "1.4",
+        "version": "1.5",
         "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/MergeMessageNotify_121.png",
         "author": "hotlcc",
         "level": 1,
         "history": {
+            "v1.5": "新增Gotify消息渠道。升级后可能需要重启MP！",
             "v1.4": "OneBot-11和http渠道模板支持Mako语法。插件升级后需要重启MP！！！",
             "v1.3": "优化OneBot-11消息。插件升级后需要重启MP！！！",
             "v1.2": "新增OneBot-11消息渠道。插件升级后需要重启MP！！！",
