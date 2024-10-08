@@ -9,6 +9,8 @@ MoviePilot第三方插件市场：[https://github.com/hotlcc/MoviePilot-Plugins-
 
 ## 插件列表
 
+### MoviePilot V1
+
 |序号|名称|当前版本|功能简述|
 |:---:|:---:|:---:|:---|
 |1|[下载器助手](plugins/downloaderhelper)|v3.5.4|自动标签、自动做种、自动删种。|
@@ -17,3 +19,9 @@ MoviePilot第三方插件市场：[https://github.com/hotlcc/MoviePilot-Plugins-
 |4|[系统进程](plugins/systemprocess)|v1.1|查看系统进程，支持仪表板|
 |5|[影视收藏助手](plugins/mediacollecthelper)|v1.11|自动收藏MP中的影视信息到其它介质。模块化设计，后期可能考虑增加其它收藏夹模块。|
 |6|[聚合消息通知](plugins/mergemessagenotify)|v1.5|消息通知，一个插件就够了。|
+
+### MoviePilot V2
+
+|序号|名称|当前版本|功能简述|
+|:---:|:---:|:---:|:---|
+|1|[下载器助手](plugins.v2/downloaderhelper)|v4.0|自动标签、自动做种、自动删种。|
