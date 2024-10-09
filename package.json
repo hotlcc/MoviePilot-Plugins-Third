@@ -61,6 +61,7 @@
         "icon": "world.png",
         "author": "hotlcc",
         "level": 2,
+        "v2": true,
         "history": {
             "v1.1": "优化插件配置生效；支持青蛙辅种助手。"
         }
