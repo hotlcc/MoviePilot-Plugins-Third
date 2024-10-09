@@ -1,6 +1,6 @@
-from typing import Any, List, Dict, Tuple, Optional
-import psutil
 import datetime
+import psutil
+from typing import Any, List, Dict, Tuple, Optional
 
 from app.plugins import _PluginBase
 from app.schemas.dashboard import ProcessInfo
@@ -420,4 +420,3 @@ class SystemProcess(_PluginBase):
         elements = [self.__build_system_process_dashboard_element()]
 
         return cols, attrs, elements
-
