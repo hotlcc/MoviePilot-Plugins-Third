@@ -1,15 +1,15 @@
-from typing import Any, List, Dict, Tuple, Set, Optional, Union
-from threading import Event as ThreadEvent
 from pydantic import BaseModel
 from requests import Response
 import re
+from threading import Event as ThreadEvent
+from typing import Any, List, Dict, Tuple, Set, Optional, Union
 
 from app.core.context import MediaInfo
 from app.log import logger
 from app.plugins.mediacollecthelper.favorites import Favorites
 from app.plugins.mediacollecthelper.module import MediaDigest
-from app.utils.http import RequestUtils
 from app.schemas.types import MediaType
+from app.utils.http import RequestUtils
 
 
 class Bookmark(BaseModel):

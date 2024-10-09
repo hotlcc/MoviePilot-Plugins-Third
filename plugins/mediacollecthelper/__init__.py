@@ -1,10 +1,10 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from threading import RLock, Event as ThreadEvent
-from typing import Any, List, Dict, Tuple, OrderedDict, Type, Optional, Union
+from cachetools import TTLCache
 from datetime import datetime, timedelta
 import pytz
-from cachetools import TTLCache
+from threading import RLock, Event as ThreadEvent
+from typing import Any, List, Dict, Tuple, OrderedDict, Type, Optional, Union
 
 from app.core.config import settings
 from app.core.context import MediaInfo
@@ -29,7 +29,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "1.11"
+    plugin_version = "1.12"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -194,6 +194,7 @@ class MediaCollectHelper(_PluginBase):
                         'model': 'enable_favorites',
                         'label': '启用的收藏夹',
                         'multiple': True,
+                        'chips': True,
                         'items': [{
                             'title': comp_obj.comp_name,
                             'value': key,
@@ -213,6 +214,7 @@ class MediaCollectHelper(_PluginBase):
                         'model': 'media_data_sources',
                         'label': '影视数据来源',
                         'multiple': True,
+                        'chips': True,
                         'items': [{
                             'title': mds.value,
                             'value': mds.name,
@@ -232,6 +234,7 @@ class MediaCollectHelper(_PluginBase):
                         'model': 'collect_media_types',
                         'label': '收藏的影视类型',
                         'multiple': True,
+                        'chips': True,
                         'items': [{
                             'title': mt.value,
                             'value': mt.name,
@@ -481,15 +484,16 @@ class MediaCollectHelper(_PluginBase):
         :param timezone: 时区
         """
         try:
-            if not self.__scheduler:
+            scheduler: BackgroundScheduler = self.__scheduler
+            if not scheduler:
                 if not timezone:
                     timezone = settings.TZ
-                self.__scheduler = BackgroundScheduler(timezone=timezone)
+                self.__scheduler = scheduler = BackgroundScheduler(timezone=timezone)
                 logger.debug(f"插件服务调度器初始化完成: timezone = {str(timezone)}")
-            if not self.__scheduler.running:
-                self.__scheduler.start()
+            if not scheduler.running:
+                scheduler.start()
                 logger.debug(f"插件服务调度器启动成功")
-                self.__scheduler.print_jobs()
+                scheduler.print_jobs()
         except Exception as e:
             logger.error(f"插件服务调度器启动异常: {str(e)}", exc_info=True)
 
@@ -499,11 +503,12 @@ class MediaCollectHelper(_PluginBase):
         """
         try:
             logger.info('尝试停止插件服务调度器...')
-            if self.__scheduler:
-                self.__scheduler.remove_all_jobs()
-                if self.__scheduler.running:
-                    self.__scheduler.shutdown()
-                self.__scheduler = None
+            scheduler: BackgroundScheduler = self.__scheduler
+            if scheduler:
+                scheduler.remove_all_jobs()
+                if scheduler.running:
+                    scheduler.shutdown()
+                self.__scheduler = scheduler = None
                 logger.info('插件服务调度器停止成功')
             else:
                 logger.info('插件未启用服务调度器，无须停止')
@@ -708,10 +713,11 @@ class MediaCollectHelper(_PluginBase):
         self.__start_scheduler()
         def __do_task():
             self.__try_run(media_data=media_data)
-        self.__scheduler.add_job(func=__do_task,
-                                    trigger='date',
-                                    run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
-                                    name='异步Try运行')
+        scheduler: BackgroundScheduler = self.__scheduler
+        scheduler.add_job(func=__do_task,
+                          trigger='date',
+                          run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                          name='异步Try运行')
 
     def __block_run(self, media_data: List[MediaDigest] = None):
         """
@@ -736,10 +742,11 @@ class MediaCollectHelper(_PluginBase):
         self.__start_scheduler()
         def __do_task():
             self.__block_run(media_data=media_data)
-        self.__scheduler.add_job(func=__do_task,
-                                    trigger='date',
-                                    run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
-                                    name='异步阻塞运行')
+        scheduler: BackgroundScheduler = self.__scheduler
+        scheduler.add_job(func=__do_task,
+                          trigger='date',
+                          run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                          name='异步阻塞运行')
 
     def __run(self, media_data: List[MediaDigest] = None):
         """

@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
-from typing import Any, List, Dict, Tuple, Optional
 from cachetools import cached, TTLCache
+from typing import Any, List, Dict, Tuple, Optional
 
 from app.chain.media import MediaChain
 from app.core.context import MediaInfo

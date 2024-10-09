@@ -9,19 +9,11 @@ MoviePilot第三方插件市场：[https://github.com/hotlcc/MoviePilot-Plugins-
 
 ## 插件列表
 
-### MoviePilot V1
-
-|序号|名称|当前版本|功能简述|
-|:---:|:---:|:---:|:---|
-|1|[下载器助手](plugins/downloaderhelper)|v3.5.4|自动标签、自动做种、自动删种。|
-|2|[插件自动升级](plugins/pluginautoupgrade)|v2.0|定时检测、升级插件。|
-|3|[聚合站点开关](plugins/mergesiteswitch)|v1.1|统一管理所有与站点相关的开关。|
-|4|[系统进程](plugins/systemprocess)|v1.1|查看系统进程，支持仪表板|
-|5|[影视收藏助手](plugins/mediacollecthelper)|v1.11|自动收藏MP中的影视信息到其它介质。模块化设计，后期可能考虑增加其它收藏夹模块。|
-|6|[聚合消息通知](plugins/mergemessagenotify)|v1.5|消息通知，一个插件就够了。|
-
-### MoviePilot V2
-
-|序号|名称|当前版本|功能简述|
-|:---:|:---:|:---:|:---|
-|1|[下载器助手](plugins.v2/downloaderhelper)|v4.0|自动标签、自动做种、自动删种。|
+|序号|名称|MP v1 版本|MP v2 版本|功能简述|
+|---|---|---|---|---|
+|1|下载器助手|[v3.5.4](plugins/downloaderhelper)|[v4.0](plugins.v2/downloaderhelper)|自动标签、自动做种、自动删种。|
+|2|插件自动升级|[v2.0](plugins/pluginautoupgrade)|尚未适配|定时检测、升级插件。|
+|3|聚合站点开关|[v1.1](plugins/mergesiteswitch)|尚未适配|统一管理所有与站点相关的开关。|
+|4|系统进程|[v1.1](plugins/systemprocess)|尚未适配|查看系统进程，支持仪表板|
+|5|影视收藏助手|[v1.12](plugins/mediacollecthelper)|已兼容|自动收藏MP中的影视信息到其它介质。|
+|6|聚合消息通知|[v1.5](plugins/mergemessagenotify)|尚未适配|消息通知，一个插件就够了。|

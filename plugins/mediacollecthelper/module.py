@@ -1,6 +1,6 @@
+from cachetools import Cache
 from enum import Enum
 from pydantic import BaseModel
-from cachetools import Cache
 from threading import RLock
 
 from app.schemas.types import MediaType
