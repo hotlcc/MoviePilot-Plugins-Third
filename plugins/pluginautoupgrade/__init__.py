@@ -1,9 +1,10 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from datetime import datetime, timedelta
+import pytz
 from threading import Event as ThreadEvent, RLock
 from typing import Any, List, Dict, Tuple, Optional
-import pytz
+
 from app import schemas
 from app.core.config import settings
 from app.core.plugin import PluginManager
@@ -73,10 +74,11 @@ class PluginAutoUpgrade(_PluginBase):
         # 如果需要立即运行一次
         if self.__get_config_item(config_key='run_once'):
             if self.__start_scheduler():
-                self.__scheduler.add_job(func=self.__try_run,
-                                         trigger='date',
-                                         run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
-                                         name=f'{self.plugin_name}-立即运行一次')
+                scheduler: BackgroundScheduler = self.__scheduler
+                scheduler.add_job(func=self.__try_run,
+                                  trigger='date',
+                                  run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
+                                  name=f'{self.plugin_name}-立即运行一次')
                 logger.info(f"立即运行一次成功")
             # 关闭一次性开关
             self.__config['run_once'] = False
@@ -453,8 +455,7 @@ class PluginAutoUpgrade(_PluginBase):
         获取所有已安装的本地插件信息
         """
         local_plugins = cls.__get_local_plugins()
-        installed_local_plugins = [local_plugin for local_plugin in local_plugins if
-                                   local_plugin and local_plugin.installed]
+        installed_local_plugins = [local_plugin for local_plugin in local_plugins if local_plugin and local_plugin.installed]
         return installed_local_plugins
 
     @classmethod
@@ -485,8 +486,7 @@ class PluginAutoUpgrade(_PluginBase):
         获取所有已安装的在线插件
         """
         online_plugins = cls.__get_online_plugins()
-        installed_online_plugins = [online_plugin for online_plugin in online_plugins if
-                                    online_plugin and online_plugin.installed]
+        installed_online_plugins = [online_plugin for online_plugin in online_plugins if online_plugin and online_plugin.installed]
         return installed_online_plugins
 
     @classmethod
@@ -522,15 +522,16 @@ class PluginAutoUpgrade(_PluginBase):
         :param timezone: 时区
         """
         try:
-            if not self.__scheduler:
+            scheduler: BackgroundScheduler = self.__scheduler
+            if scheduler:
                 if not timezone:
                     timezone = settings.TZ
-                self.__scheduler = BackgroundScheduler(timezone=timezone)
+                self.__scheduler = scheduler = BackgroundScheduler(timezone=timezone)
                 logger.debug(f"插件服务调度器初始化完成: timezone = {str(timezone)}")
-            if not self.__scheduler.running:
-                self.__scheduler.start()
+            if not scheduler.running:
+                scheduler.start()
                 logger.debug(f"插件服务调度器启动成功")
-                self.__scheduler.print_jobs()
+                scheduler.print_jobs()
             return True
         except Exception as e:
             logger.error(f"插件服务调度器启动异常: {str(e)}", exc_info=True)
@@ -542,11 +543,12 @@ class PluginAutoUpgrade(_PluginBase):
         """
         try:
             logger.info('尝试停止插件服务调度器...')
-            if self.__scheduler:
-                self.__scheduler.remove_all_jobs()
-                if self.__scheduler.running:
-                    self.__scheduler.shutdown()
-                self.__scheduler = None
+            scheduler: BackgroundScheduler = self.__scheduler
+            if scheduler:
+                scheduler.remove_all_jobs()
+                if scheduler.running:
+                    scheduler.shutdown()
+                self.__scheduler = scheduler = None
                 logger.info('插件服务调度器停止成功')
             else:
                 logger.info('插件未启用服务调度器，无须停止')
@@ -635,14 +637,12 @@ class PluginAutoUpgrade(_PluginBase):
         """
         单个升级
         """
-        if not online_plugin or not online_plugin.has_update or not online_plugin.id or not online_plugin.repo_url or not self.__check_allow_upgrade(
-                plugin_id=online_plugin.id):
+        if not online_plugin or not online_plugin.has_update or not online_plugin.id or not online_plugin.repo_url or not self.__check_allow_upgrade(plugin_id=online_plugin.id):
             return None
         installed_local_plugin = self.__get_installed_local_plugin(plugin_id=online_plugin.id)
         if not installed_local_plugin:
             return None
-        success, message = self.__install_plugin(plugin_id=online_plugin.id, repo_url=online_plugin.repo_url,
-                                                 force=True)
+        success, message = self.__install_plugin(plugin_id=online_plugin.id, repo_url=online_plugin.repo_url, force=True)
         logger.info(
             f"插件升级结果: plugin_name = {online_plugin.plugin_name}, plugin_version = v{installed_local_plugin.plugin_version} -> v{online_plugin.plugin_version}, success = {success}, message = {message}")
         return {
@@ -719,8 +719,7 @@ class PluginAutoUpgrade(_PluginBase):
         # 只展示最近多少条
         display_record_quantity = self.__get_config_item('display_record_quantity')
         upgrade_records = upgrade_records[-display_record_quantity:]
-        page_data = [self.__convert_upgrade_record_to_page_data(upgrade_record) for upgrade_record in upgrade_records if
-                     upgrade_record]
+        page_data = [self.__convert_upgrade_record_to_page_data(upgrade_record) for upgrade_record in upgrade_records if upgrade_record]
         # 按时间倒序
         page_data = sorted(page_data, key=lambda item: item.get("datetime_str"), reverse=True)
         return page_data
