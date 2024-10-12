@@ -1,7 +1,7 @@
 from abc import abstractmethod, ABC
-from typing import Dict, Any, Tuple, List
 import inspect
 import os
+from typing import Dict, Any, Tuple, List
 
 from app.plugins import _PluginBase
 from app.schemas.types import NotificationType

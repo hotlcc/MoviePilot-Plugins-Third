@@ -1,22 +1,13 @@
-from typing import OrderedDict, Dict, Any, List, Tuple, Type, Union
-from dotenv import set_key
-import inspect
-import os
-from threading import Thread
+from typing import OrderedDict, Dict, Any, List, Tuple, Type
 
+from app.core.event import eventmanager, Event
 from app.helper.module import ModuleHelper
-from app.core.module import ModuleManager
 from app.log import logger
 from app.plugins import _PluginBase
 from app.plugins.mergemessagenotify.channel import Channel
-from app.plugins.mergemessagenotify.channel.system import SystemChannel
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.core.config import settings
-from app.db.systemconfig_oper import SystemConfigOper
-from app.schemas.types import EventType, NotificationType
-from app.core.event import eventmanager, Event
 from app.plugins.mergemessagenotify.module import ChannelStrategy
-from app.plugins.mergemessagenotify.util import ThreadLocalUtil
+from app.schemas.types import EventType, NotificationType
 
 
 class MergeMessageNotify(_PluginBase):
@@ -27,7 +18,7 @@ class MergeMessageNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/MergeMessageNotify_121.png"
     # 插件版本
-    plugin_version = "1.5"
+    plugin_version = "1.6"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -51,7 +42,6 @@ class MergeMessageNotify(_PluginBase):
     # 插件用户配置
     __config: Dict[str, Any] = {}
 
-    @ThreadLocalUtil.auto_delete(keys=["need_reload_system_modules"])
     def init_plugin(self, config: dict = None):
         """
         生效配置信息
@@ -65,12 +55,6 @@ class MergeMessageNotify(_PluginBase):
         self.__config = config
         # 注册组件
         self.__register_comp()
-        # 当通过页面操作保存配置时
-        if self.__check_stack_contain_save_config_request():
-            # 更新系统当前使用通知渠道
-            self.__apply_config(config=config)
-            # 重载系统模块
-            self.__reload_system_modules()
 
     def get_state(self) -> bool:
         """
@@ -139,7 +123,7 @@ class MergeMessageNotify(_PluginBase):
                     'props': {
                         'model': 'enable',
                         'label': '启用插件',
-                        'hint': '插件总开关，仅针对第三方自定义渠道，不包含系统渠道。'
+                        'hint': '插件总开关'
                     }
                 }]
             }]
@@ -160,7 +144,7 @@ class MergeMessageNotify(_PluginBase):
                         'chips': True,
                         'clearable': True,
                         'items': channel_select_items,
-                        'hint': '选填。消息通知渠道总开关，只有选择的渠道才会发送消息。'
+                        'hint': '选填。只有选择的渠道才会发送消息。'
                     }
                 }]
             }, {
@@ -178,29 +162,13 @@ class MergeMessageNotify(_PluginBase):
                             'title': item.name_,
                             'value': item.name
                         } for item in ChannelStrategy],
-                        'hint': f'选填。【当前使用通知渠道】选择的第三方渠道以何种策略生效：{channel_strategy_hint_desc}。缺省时为“{ChannelStrategy.ALL_SELECTED.name_}”。'
+                        'hint': f'选填。【当前使用通知渠道】选择的渠道以何种策略运行：{channel_strategy_hint_desc}。缺省时为“{ChannelStrategy.ALL_SELECTED.name_}”。'
                     }
                 }]
             }]
         }]
         # 尾部元素
-        foot_elements = [{
-            'component': 'VRow',
-            'content': [{
-                'component': 'VCol',
-                'props': {
-                    'cols': 12
-                },
-                'content': [{
-                    'component': 'VAlert',
-                    'props': {
-                        'type': 'info',
-                        'variant': 'tonal'
-                    },
-                    'text': '系统类渠道配置在保存后仅会同步配置到【设定/通知/通知渠道】，真实的消息发送还是由系统处理。'
-                }]
-            }]
-        }]
+        foot_elements = []
         # 组件的元素
         comp_elements = [self.__build_comp_form_element()]
         # 元素
@@ -208,8 +176,6 @@ class MergeMessageNotify(_PluginBase):
             'component': 'VForm',
             'content': header_elements + comp_elements + foot_elements
         }]
-        # 处理初始配置：从系统配置中加载组件配置
-        self.__save_system_config()
         # 处理缺省配置
         self.__save_default_config()
         return elements, config_suggest
@@ -330,7 +296,6 @@ class MergeMessageNotify(_PluginBase):
             return False
         return issubclass(comp_type, Channel) \
            and comp_type.__name__ != Channel.__name__ \
-           and comp_type.__name__ != SystemChannel.__name__ \
            and comp_type.__name__ != CustomChannel.__name__
 
     def __register_comp(self):
@@ -340,9 +305,6 @@ class MergeMessageNotify(_PluginBase):
         # 加载所有组件类
         comp_types: List[Type[Channel]] = ModuleHelper.load(
             package_path="app.plugins.mergemessagenotify.channel",
-            filter_func=lambda _, obj: self.__filter_comp_type(comp_type=obj)
-        ) + ModuleHelper.load(
-            package_path="app.plugins.mergemessagenotify.channel.system",
             filter_func=lambda _, obj: self.__filter_comp_type(comp_type=obj)
         ) + ModuleHelper.load(
             package_path="app.plugins.mergemessagenotify.channel.custom",
@@ -518,91 +480,6 @@ class MergeMessageNotify(_PluginBase):
         except Exception as e:
             logger.error(f"回收内存异常: {str(e)}", exc_info=True)
 
-    @classmethod
-    def __check_stack_contain_method(cls, package_name: str, function_name: str) -> bool:
-        """
-        判断调用栈是否包含指定的方法
-        """
-        if not package_name or not function_name:
-            return False
-        package_path = package_name.replace('.', os.sep)
-        for stack in inspect.stack():
-            if not stack or not stack.filename:
-                continue
-            if stack.function != function_name:
-                continue
-            if stack.filename.endswith(f"{package_path}.py") or stack.filename.endswith(f"{package_path}{os.sep}__init__.py"):
-                return True
-        return False
-
-    @classmethod
-    def __check_stack_contain_save_config_request(cls) -> bool:
-        """
-        判断调用栈是否包含“插件配置保存”接口
-        """
-        return cls.__check_stack_contain_method('app.api.endpoints.plugin', 'set_plugin_config')
-
-    def __get_setting(self, key: str):
-        """
-        获取系统配置
-        """
-        if not key:
-            return None
-        if hasattr(settings, key):
-            return getattr(settings, key)
-        else:
-            return SystemConfigOper().get(key=key)
-
-    def __update_setting(self, key: str, value: Union[list, dict, bool, int, str]) -> bool:
-        """
-        更新系统设置
-        :return: 是否更新（更新前后是否有变化）
-        """
-        if hasattr(settings, key):
-            # 更新前的运行时配置值
-            old_runtime_value = getattr(settings, key)
-            if value == "None":
-                value = None
-            # 更新运行时值和环境变量文件值
-            setattr(settings, key, value)
-            if value is None:
-                value = ""
-            else:
-                value = str(value)
-            set_key(settings.CONFIG_PATH / "app.env", key, value)
-            # 是否有更新
-            has_change = (value != old_runtime_value)
-            return has_change
-        else:
-            system_config_oper = SystemConfigOper()
-            # 更新前的配置值
-            old_value = system_config_oper.get(key=key)
-            system_config_oper.set(key=key, value=value)
-            # 是否有更新
-            has_change = (value != old_value)
-            return has_change
-
-    def __save_system_config(self):
-        """
-        从系统配置中加载插件配置
-        """
-        config = self.__config or {}
-        # 当前使用通知渠道
-        # 系统通知渠道
-        message_setting_value: str = self.__get_setting(key="MESSAGER")
-        system_enable_channels = message_setting_value.split(",") if message_setting_value else []
-        enable_channels: List[str] = self.__get_config_item(config_key="enable_channels", use_default=False) or []
-        new_enable_channels = []
-        system_channel_key_prefix = f"{SystemChannel.comp_key}."
-        for system_enable_channel in system_enable_channels:
-            new_enable_channels.append(f"{system_channel_key_prefix}{system_enable_channel}")
-        for enable_channel in enable_channels:
-            if enable_channel.startswith(system_channel_key_prefix):
-                continue
-            new_enable_channels.append(enable_channel)
-        config["enable_channels"] = new_enable_channels
-        self.update_config(config=config)
-
     def __save_default_config(self):
         """
         （缺省时）保存默认配置到组件配置中
@@ -619,45 +496,6 @@ class MergeMessageNotify(_PluginBase):
         if config_copy != config:
             self.update_config(config=config_copy)
 
-    def __apply_config(self, config: dict):
-        """
-        应用配置（使系统配置生效）
-        """
-        config = config or {}
-        # 更新系统当前使用通知渠道
-        enable_channels: List[str] = config.get("enable_channels") or []
-        system_channel_key_prefix = f"{SystemChannel.comp_key}."
-        system_enable_channels: List[str] = [enable_channel.removeprefix(system_channel_key_prefix) for enable_channel in enable_channels if enable_channel and enable_channel.startswith(system_channel_key_prefix)]
-        message_setting_value: str = ",".join(system_enable_channels)
-        has_change = self.__update_setting(key="MESSAGER", value=message_setting_value)
-        if has_change:
-            self.__mark_need_reload_system_modules()
-
-    def __mark_need_reload_system_modules(self):
-        """
-        标记需要重载系统模块
-        """
-        try:
-            ThreadLocalUtil.set("need_reload_system_modules", True)
-        except Exception:
-            pass
-
-    def __reload_system_modules(self):
-        """
-        重载系统模块
-        """
-        if not ThreadLocalUtil.get(key="need_reload_system_modules"):
-            return
-        # 异步操作，避免界面阻塞
-        def __async_reload_system_modules():
-            try:
-                ModuleManager().reload()
-                logger.info("系统模块重载成功")
-            except Exception as e:
-                logger.error(f"系统模块重载异常: {str(e)}", exc_info=True)
-        thread = Thread(target=__async_reload_system_modules)
-        thread.start()
-
     @eventmanager.register(EventType.NoticeMessage)
     def listen_notice_message_event(self, event: Event = None):
         """
@@ -670,11 +508,8 @@ class MergeMessageNotify(_PluginBase):
         try:
             logger.info('监听到发送消息通知事件')
             enable_channels: List[str] = self.__get_config_item("enable_channels") or []
-            system_channel_key_prefix = f"{SystemChannel.comp_key}."
-            # 启用的自定义渠道集合
-            enable_channels = [enable_channel for enable_channel in enable_channels if enable_channel and not enable_channel.startswith(system_channel_key_prefix)]
             if not enable_channels:
-                logger.warn('发送消息通知事件监听任务执行中止: 没有启用任何自定义渠道')
+                logger.warn('发送消息通知事件监听任务执行中止: 没有启用任何渠道')
                 return
             message_info = event.event_data
             if message_info.get("channel"):
