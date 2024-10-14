@@ -356,3 +356,16 @@ class DownloaderTransferInfo():
     upload_size: Optional[str] = '0.00B'
     # 剩余空间
     free_space: Optional[str] = '0.00B'
+
+
+class EventDeleteTorrentStrategy(Enum):
+    """
+    事件删种策略
+    """
+
+    EARLY = ("提前删种", "当监听到源文件删除事件时立即删除种子，但不删除数据文件")
+    DELAYED = ("延迟删种", "当监听到源文件删除事件时会判断种子数据文件是否存在，只有数据文件不存在时才会删种，比如剧集这种多文件种子，只有当最后一集源文件被删除时才会删种")
+
+    def __init__(self, name_: str, desc: str):
+        self.name_ = name_
+        self.desc = desc
