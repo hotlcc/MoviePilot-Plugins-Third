@@ -20,7 +20,7 @@ class MergeSiteSwitch(_PluginBase):
     # 插件图标
     plugin_icon = "world.png"
     # 插件版本
-    plugin_version = "1.1"
+    plugin_version = "1.2"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -39,6 +39,8 @@ class MergeSiteSwitch(_PluginBase):
     __system_config_oper: SystemConfigOper = SystemConfigOper()
 
     # 其它插件ID
+    # 自定义站点
+    __plugin_id_custom_sites: str = 'CustomSites'
     # 站点自动签到
     __plugin_id_auto_signin: str = 'AutoSignIn'
     # 站点数据统计
@@ -98,6 +100,10 @@ class MergeSiteSwitch(_PluginBase):
         """
         # 站点选项
         site_options = self.__get_site_options()
+        # 自定义站点选项
+        custom_site_options = self.__get_custom_site_options(suffix=" [自定义]")
+        # 全部站点选项
+        all_site_options = site_options + custom_site_options
         # 已安装的插件IDs
         installed_plugin_ids = self.__get_installed_plugin_ids()
         # 建议的配置
@@ -120,7 +126,7 @@ class MergeSiteSwitch(_PluginBase):
                         'multiple': True,
                         'chips': True,
                         'items': site_options,
-                        'hint': '对应功能【站点管理 / 添加编辑站点 / 启用】'
+                        'hint': '对应功能【站点管理 / 添加编辑站点 / 启用】，仅支持系统站点。'
                     }
                 }]
             }]
@@ -140,7 +146,7 @@ class MergeSiteSwitch(_PluginBase):
                         'multiple': True,
                         'chips': True,
                         'items': site_options,
-                        'hint': '只有选中的站点才会在搜索中使用。'
+                        'hint': '只有选中的站点才会在搜索中使用，仅支持系统站点。'
                     }
                 }]
             }, {
@@ -174,7 +180,7 @@ class MergeSiteSwitch(_PluginBase):
                         'multiple': True,
                         'chips': True,
                         'items': site_options,
-                        'hint': '只有选中的站点才会在订阅中使用。'
+                        'hint': '只有选中的站点才会在订阅中使用，仅支持系统站点。'
                     }
                 }]
             }, {
@@ -210,8 +216,8 @@ class MergeSiteSwitch(_PluginBase):
                             'label': '插件 / 站点自动签到 / 签到站点',
                             'multiple': True,
                             'chips': True,
-                            'items': site_options,
-                            'hint': '只有选中的站点才会在签到中使用。'
+                            'items': all_site_options,
+                            'hint': '只有选中的站点才会在签到中使用，支持系统站点和自定义站点。'
                         }
                     }]
                 }, {
@@ -241,8 +247,8 @@ class MergeSiteSwitch(_PluginBase):
                             'label': '插件 / 站点自动签到 / 登录站点',
                             'multiple': True,
                             'chips': True,
-                            'items': site_options,
-                            'hint': '只有选中的站点才会在登录中使用。'
+                            'items': all_site_options,
+                            'hint': '只有选中的站点才会在登录中使用，支持系统站点和自定义站点。'
                         }
                     }]
                 }, {
@@ -278,8 +284,8 @@ class MergeSiteSwitch(_PluginBase):
                             'label': '插件 / 站点数据统计 / 统计站点',
                             'multiple': True,
                             'chips': True,
-                            'items': site_options,
-                            'hint': '缺省时默认全部站点。'
+                            'items': all_site_options,
+                            'hint': '缺省时默认全部站点，支持系统站点和自定义站点。'
                         }
                     }]
                 }, {
@@ -315,8 +321,8 @@ class MergeSiteSwitch(_PluginBase):
                             'label': '插件 / IYUU自动辅种 / 辅种站点',
                             'multiple': True,
                             'chips': True,
-                            'items': site_options,
-                            'hint': '缺省时默认全部站点。'
+                            'items': all_site_options,
+                            'hint': '缺省时默认全部站点，支持系统站点和自定义站点。'
                         }
                     }]
                 }, {
@@ -353,7 +359,7 @@ class MergeSiteSwitch(_PluginBase):
                             'multiple': True,
                             'chips': True,
                             'items': site_options,
-                            'hint': '只有选中的站点才会在刷流中使用。'
+                            'hint': '只有选中的站点才会在刷流中使用，仅支持系统站点。'
                         }
                     }]
                 }, {
@@ -389,8 +395,8 @@ class MergeSiteSwitch(_PluginBase):
                             'label': '插件 / 青蛙辅种助手 / 辅种站点',
                             'multiple': True,
                             'chips': True,
-                            'items': site_options,
-                            'hint': '只有选中的站点才会在辅种中使用。'
+                            'items': all_site_options,
+                            'hint': '只有选中的站点才会在辅种中使用，支持系统站点和自定义站点。'
                         }
                     }]
                 }, {
@@ -572,6 +578,15 @@ class MergeSiteSwitch(_PluginBase):
             'value': site.id
         } for site in sites if site]
 
+    def __get_site_ids(self) -> List[str]:
+        """
+        获取站点IDs
+        """
+        sites = self.__site_oper.list_order_by_pri()
+        if not sites:
+            return []
+        return [site.id for site in sites if site]
+
     def __get_installed_plugin_ids(self):
         """
         获取已安装的插件IDs
@@ -593,18 +608,26 @@ class MergeSiteSwitch(_PluginBase):
         })
         # 已安装的插件IDs
         installed_plugin_ids = self.__get_installed_plugin_ids()
+        # 站点IDs
+        #site_ids = self.__get_site_ids()
+        #custom_site_ids = self.__get_custom_site_ids()
+        #all_site_ids = site_ids + custom_site_ids
         if self.__plugin_id_auto_signin in installed_plugin_ids:
             config.update({
                 'signin_sites': self.__get_signin_site_ids(),
+                #'signin_sites': [site_id for site_id in self.__get_signin_site_ids() if site_id in all_site_ids],
                 'login_sites': self.__get_login_site_ids(),
+                #'login_sites': [site_id for site_id in self.__get_login_site_ids() if site_id in all_site_ids],
             })
         if self.__plugin_id_site_statistic in installed_plugin_ids:
             config.update({
                 'statistic_sites': self.__get_statistic_site_ids(),
+                #'statistic_sites': [site_id for site_id in self.__get_statistic_site_ids() if site_id in all_site_ids],
             })
         if self.__plugin_id_iyuu_auto_seed in installed_plugin_ids:
             config.update({
                 'iyuu_seed_sites': self.__get_iyuu_seed_site_ids(),
+                #'iyuu_seed_sites': [site_id for site_id in self.__get_iyuu_seed_site_ids() if site_id in all_site_ids],
             })
         if self.__plugin_id_brush_flow in installed_plugin_ids:
             config.update({
@@ -613,6 +636,7 @@ class MergeSiteSwitch(_PluginBase):
         if self.__plugin_id_cross_seed in installed_plugin_ids:
             config.update({
                 'cross_seed_sites': self.__get_cross_seed_site_ids(),
+                #'cross_seed_sites': [site_id for site_id in self.__get_cross_seed_site_ids() if site_id in all_site_ids],
             })
         self.update_config(config=config)
         return config
@@ -624,22 +648,33 @@ class MergeSiteSwitch(_PluginBase):
         if not config:
             config = {}
         enable_sites = config.get('enable_sites') or []
+        custom_site_ids = self.__get_custom_site_ids()
         if config.get('search_follow_enable_sites'):
             config.update({"search_sites": enable_sites.copy()})
         if config.get('rss_follow_enable_sites'):
             config.update({"rss_sites": enable_sites.copy()})
         if config.get('signin_follow_enable_sites'):
-            config.update({"signin_sites": enable_sites.copy()})
+            signin_sites = config.get('signin_sites') or []
+            signin_sites = enable_sites.copy() + [site for site in signin_sites if site and site in custom_site_ids]
+            config.update({"signin_sites": signin_sites})
         if config.get('login_follow_enable_sites'):
-            config.update({"login_sites": enable_sites.copy()})
+            login_sites = config.get('login_sites') or []
+            login_sites = enable_sites.copy() + [site for site in login_sites if site and site in custom_site_ids]
+            config.update({"login_sites": login_sites})
         if config.get('statistic_follow_enable_sites'):
-            config.update({"statistic_sites": enable_sites.copy()})
+            statistic_sites = config.get('statistic_sites') or []
+            statistic_sites = enable_sites.copy() + [site for site in statistic_sites if site and site in custom_site_ids]
+            config.update({"statistic_sites": statistic_sites})
         if config.get('iyuu_seed_follow_enable_sites'):
-            config.update({"iyuu_seed_sites": enable_sites.copy()})
+            iyuu_seed_sites = config.get('iyuu_seed_sites') or []
+            iyuu_seed_sites = enable_sites.copy() + [site for site in iyuu_seed_sites if site and site in custom_site_ids]
+            config.update({"iyuu_seed_sites": iyuu_seed_sites})
         if config.get('brush_flow_follow_enable_sites'):
             config.update({"brush_flow_sites": enable_sites.copy()})
         if config.get('cross_seed_follow_enable_sites'):
-            config.update({"cross_seed_sites": enable_sites.copy()})
+            cross_seed_sites = config.get('cross_seed_sites') or []
+            cross_seed_sites = enable_sites.copy() + [site for site in cross_seed_sites if site and site in custom_site_ids]
+            config.update({"cross_seed_sites": cross_seed_sites})
         return config
 
     def __pre_config(self, config: dict) -> dict:
@@ -963,6 +998,52 @@ class MergeSiteSwitch(_PluginBase):
             self.__update_brush_flow_site_ids_by_site(site_id=site_id, site_status=site_status)
         if self.__check_cross_seed_follow_enable_sites(installed_plugin_ids=installed_plugin_ids):
             self.__update_cross_seed_site_ids_by_site(site_id=site_id, site_status=site_status)
+
+    def __get_custom_sites(self) -> List[dict]:
+        """
+        获取自定义站点
+        """
+        # 已安装的插件IDs
+        installed_plugin_ids = self.__get_installed_plugin_ids()
+        if self.__plugin_id_custom_sites not in installed_plugin_ids:
+            return []
+        custom_sites_config: dict = self.get_config(plugin_id=self.__plugin_id_custom_sites)
+        if not custom_sites_config or not custom_sites_config.get("enabled"):
+            return []
+        return custom_sites_config.get("sites") or []
+
+    def __get_custom_site_ids(self) -> List[str]:
+        """
+        获取自定义站点IDs
+        """
+        custom_sites = self.__get_custom_sites()
+        if not custom_sites:
+            return []
+        return [custom_site.get("id") for custom_site in custom_sites if custom_site and custom_site.get("id")]
+
+    def __get_custom_site_options(self, prefix: str = None, suffix: str = None) -> List[Dict[str, Any]]:
+        """
+        获取自定义站点选项
+        """
+        custom_sites = self.__get_custom_sites()
+        if not custom_sites:
+            return []
+        return [{
+            'title': self.__concat_prefix_suffix(custom_site.get("name"), prefix=prefix, suffix=suffix),
+            'value': custom_site.get("id")
+        } for custom_site in custom_sites if custom_site]
+
+    @classmethod
+    def __concat_prefix_suffix(cls, s: str, prefix: str = None, suffix: str = None) -> str:
+        """
+        字符串连接前缀或后缀
+        """
+        s = s or ""
+        if prefix:
+            s = prefix + s
+        if suffix:
+            s = s + suffix
+        return s
 
     @eventmanager.register(EventType.SiteUpdated)
     def listen_site_updated_event(self, event: Event = None):

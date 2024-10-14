@@ -57,12 +57,13 @@
         "name": "聚合站点开关",
         "description": "统一管理所有与站点相关的开关。",
         "labels": "系统设置",
-        "version": "1.1",
+        "version": "1.2",
         "icon": "world.png",
         "author": "hotlcc",
         "level": 2,
         "v2": true,
         "history": {
+            "v1.2": "支持自定义站点。",
             "v1.1": "优化插件配置生效；支持青蛙辅种助手。"
         }
     },
