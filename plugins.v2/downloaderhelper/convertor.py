@@ -71,6 +71,8 @@ class StateConvertor(IConvertor, metaclass=Singleton):
                 return '校验'
             if data == TorrentState.QUEUED_DOWNLOAD.value:
                 return '排队'
+            if data == 'stoppedDL':
+                return '已停止'
             # tr
             if data == 6:
                 return '做种'
