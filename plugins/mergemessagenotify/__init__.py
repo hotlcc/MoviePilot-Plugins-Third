@@ -18,7 +18,7 @@ class MergeMessageNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/MergeMessageNotify_121.png"
     # 插件版本
-    plugin_version = "1.6"
+    plugin_version = "1.7"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -520,7 +520,8 @@ class MergeMessageNotify(_PluginBase):
             if not title and not text:
                 logger.warn('发送消息通知事件监听任务执行中止: 标题和内容不允许同时为空')
                 return
-            type: NotificationType = message_info.get("type")
+            # 消息类型在MPv1中是type，在MPv2中是mtype
+            type: NotificationType = message_info.get("type") or message_info.get("mtype")
             # 渠道策略
             channel_strategy = self.__get_config_item(config_key="channel_strategy")
             is_order_success_one: bool = (ChannelStrategy.ORDER_SUCCESS_ONE.name == channel_strategy)
