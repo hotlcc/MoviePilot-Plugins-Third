@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "4.0.2"
+    plugin_version = "4.0.3"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -2649,12 +2649,12 @@ class DownloaderHelper(_PluginBase):
         if not fields:
             fields = self.__get_dashboard_active_torrent_widget_display_fields()
         # 活动种子
-        torrents, error = qbittorrent.get_torrents(status=['active'])
+        torrents, error = qbittorrent.get_torrents(status='active')
         if error:
             return None
         torrent_hashs = set([torrent.get('hash') for torrent in torrents if torrent and torrent.get('hash')])
         # 未下载完的种子
-        downloading_torrents, _ = qbittorrent.get_torrents(status=['downloading'])
+        downloading_torrents, _ = qbittorrent.get_torrents(status='downloading')
         if downloading_torrents:
             for downloading_torrent in downloading_torrents:
                 torrent_hash = downloading_torrent.get('hash')
