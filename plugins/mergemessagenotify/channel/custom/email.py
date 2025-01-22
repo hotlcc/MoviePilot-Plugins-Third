@@ -18,7 +18,7 @@ class EmailChannel(CustomChannel):
     # 组件名称
     comp_name: str = "邮件"
     # 组件顺序
-    comp_order: int = CustomChannel.comp_order * 100 + 98
+    comp_order: int = CustomChannel.comp_order * 100 + 61
 
     # 配置相关
     # 组件缺省配置

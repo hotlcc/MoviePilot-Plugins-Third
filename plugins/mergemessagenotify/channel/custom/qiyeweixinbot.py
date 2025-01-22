@@ -21,7 +21,7 @@ class QiyeWeixinBotChannel(CustomChannel):
     # 组件名称
     comp_name: str = "企业微信机器人"
     # 组件顺序
-    comp_order: int = CustomChannel.comp_order * 100 + 10
+    comp_order: int = CustomChannel.comp_order * 100 + 42
 
     # 配置相关
     # 组件缺省配置

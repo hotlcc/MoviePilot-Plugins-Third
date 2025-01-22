@@ -21,7 +21,7 @@ class DingtalkRobotChannel(CustomChannel):
     # 组件名称
     comp_name: str = "钉钉机器人"
     # 组件顺序
-    comp_order: int = CustomChannel.comp_order * 100 + 9
+    comp_order: int = CustomChannel.comp_order * 100 + 41
 
     # 配置相关
     # 组件缺省配置
@@ -182,7 +182,13 @@ class DingtalkRobotChannel(CustomChannel):
             }
         # Markdown 类型
         if image or title:
-            markdown = f"{text}\n\n![]({image})" if image else text
+            markdown = ""
+            if title:
+                markdown += f"#### {title}\n\n"
+            if text:
+                markdown += f"{text}\n\n"
+            if image:
+                markdown += f"![]({image})"
             return "markdown", {
                 "title": title,
                 "text": markdown,
