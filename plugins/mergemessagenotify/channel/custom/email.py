@@ -160,6 +160,14 @@ class EmailChannel(CustomChannel):
             return False
         return True
 
+    def __build_from_header_value(self, from_name: str, username: str) -> str:
+        """
+        构造发件人Header值
+        """
+        if not from_name:
+            return username
+        return f"{from_name} <{username}>"
+
     def __build_message(self, title: str, text: str, ext_info: dict = {}) -> MIMEText:
         """
         构造消息对象
@@ -173,7 +181,8 @@ class EmailChannel(CustomChannel):
             message = MIMEText(text, "plain", "utf-8")
         from_name = self.get_config_item(config_key="from_name")
         username = self.get_config_item(config_key="username")
-        message["From"] = Header(from_name or username, "utf-8")
+        from_header_value = self.__build_from_header_value(from_name=from_name, username=username)
+        message["From"] = Header(from_header_value, "utf-8")
         message["Subject"] = Header(title, "utf-8")
         return message
 
