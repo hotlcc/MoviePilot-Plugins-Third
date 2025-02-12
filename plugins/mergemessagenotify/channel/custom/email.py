@@ -1,12 +1,22 @@
-from typing import Tuple, List, Dict, Any
-import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
+from enum import Enum
+import smtplib
+from typing import Tuple, List, Dict, Any, Union
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
 from app.log import logger
+
+
+class SmtpEncryptType(Enum):
+    """
+    SMTP加密类型枚举
+    """
+    NONE = "不加密"
+    SSL = "SSL加密"
+    TLS = "TLS加密"
 
 
 class EmailChannel(CustomChannel):
@@ -68,6 +78,24 @@ class EmailChannel(CustomChannel):
                         'type': 'number',
                         'placeholder': '587',
                         'hint': '必填。SMTP邮件服务器的端口。'
+                    }
+                }]
+            }, {
+                'component': 'VCol',
+                'props': {
+                    'cols': 12,
+                    'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                },
+                'content': [{
+                    'component': 'VSelect',
+                    'props': {
+                        'model': 'smtp_encrypt_type',
+                        'label': 'SMTP加密类型',
+                        'items': [{
+                            'title': item.value,
+                            'value': item.name
+                        } for item in SmtpEncryptType if item],
+                        'hint': '必填。SMTP邮件服务器的加密类型。'
                     }
                 }]
             }, {
@@ -150,6 +178,9 @@ class EmailChannel(CustomChannel):
         if not self.get_config_item(config_key="smtp_port"):
             logger.warn(f"配置检查不通过: channel = {self.comp_name}, SMTP端口无效")
             return False
+        if not SmtpEncryptType.__members__.get(self.get_config_item(config_key="smtp_encrypt_type")):
+            logger.warn(f"配置检查不通过: channel = {self.comp_name}, SMTP加密类型无效")
+            return False
         if not self.get_config_item(config_key="username"):
             logger.warn(f"配置检查不通过: channel = {self.comp_name}, 邮箱账户无效")
             return False
@@ -187,6 +218,29 @@ class EmailChannel(CustomChannel):
         """
         return list(set([item.strip() for item in raw_str.split(",") if item and item.strip()])) if raw_str else []
 
+    def __connect_smtp(self, username: str = None, password: str = None) -> smtplib.SMTP:
+        """
+        连接SMTP
+        """
+        smtp_host = self.get_config_item(config_key="smtp_host")
+        smtp_port = self.get_config_item(config_key="smtp_port")
+        timeout = 60
+        # 针对不同加密类型的处理
+        smtp_encrypt_type = SmtpEncryptType.__members__.get(self.get_config_item(config_key="smtp_encrypt_type"))
+        if smtp_encrypt_type == SmtpEncryptType.SSL:
+            smtp = smtplib.SMTP_SSL(host=smtp_host, port=smtp_port, timeout=timeout)
+        else:
+            smtp = smtplib.SMTP(host=smtp_host, port=smtp_port, timeout=timeout)
+            if smtp_encrypt_type == SmtpEncryptType.TLS:
+                smtp.starttls()
+        # 登录
+        if not username:
+            username = self.get_config_item(config_key="username")
+        if not password:
+            password = self.get_config_item(config_key="password")
+        smtp.login(user=username, password=password)
+        return smtp
+
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
         """
         发送消息
@@ -202,16 +256,12 @@ class EmailChannel(CustomChannel):
         if not self.__check_config():
             return False
         # 发送邮件
-        smtp_host= self.get_config_item(config_key="smtp_host")
-        smtp_port= self.get_config_item(config_key="smtp_port")
         username= self.get_config_item(config_key="username")
-        password= self.get_config_item(config_key="password")
         to_addrs= self.__split_multstr(self.get_config_item(config_key="to_addrs"))
         message = self.__build_message(title=title, text=text, to_addrs=to_addrs, ext_info=ext_info)
         smtp = None
         try:
-            smtp = smtplib.SMTP_SSL(host=smtp_host, port=smtp_port, timeout=60)
-            smtp.login(user=username, password=password)
+            smtp = self.__connect_smtp(username=username)
             smtp.sendmail(from_addr=username, to_addrs=to_addrs, msg=message.as_string())
             logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
             return True
