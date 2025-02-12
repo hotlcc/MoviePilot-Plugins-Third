@@ -25,7 +25,7 @@ class PluginAutoUpgrade(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/PluginAutoUpgrade.png"
     # 插件版本
-    plugin_version = "2.0"
+    plugin_version = "2.1"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -523,7 +523,7 @@ class PluginAutoUpgrade(_PluginBase):
         """
         try:
             scheduler: BackgroundScheduler = self.__scheduler
-            if scheduler:
+            if not scheduler:
                 if not timezone:
                     timezone = settings.TZ
                 self.__scheduler = scheduler = BackgroundScheduler(timezone=timezone)
