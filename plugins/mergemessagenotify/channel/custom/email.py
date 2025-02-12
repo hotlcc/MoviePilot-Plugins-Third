@@ -2,6 +2,7 @@ from typing import Tuple, List, Dict, Any
 import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
+from email.utils import formataddr
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
@@ -155,20 +156,13 @@ class EmailChannel(CustomChannel):
         if not self.get_config_item(config_key="password"):
             logger.warn(f"配置检查不通过: channel = {self.comp_name}, 邮箱密码无效")
             return False
-        if not self.get_config_item(config_key="to_addrs"):
+        to_addrs= self.__split_multstr(self.get_config_item(config_key="to_addrs"))
+        if not to_addrs:
             logger.warn(f"配置检查不通过: channel = {self.comp_name}, 收件人无效")
             return False
         return True
 
-    def __build_from_header_value(self, from_name: str, username: str) -> str:
-        """
-        构造发件人Header值
-        """
-        if not from_name:
-            return username
-        return f"{from_name} <{username}>"
-
-    def __build_message(self, title: str, text: str, ext_info: dict = {}) -> MIMEText:
+    def __build_message(self, title: str, text: str, to_addrs: List[str], ext_info: dict = {}) -> MIMEText:
         """
         构造消息对象
         """
@@ -181,8 +175,8 @@ class EmailChannel(CustomChannel):
             message = MIMEText(text, "plain", "utf-8")
         from_name = self.get_config_item(config_key="from_name")
         username = self.get_config_item(config_key="username")
-        from_header_value = self.__build_from_header_value(from_name=from_name, username=username)
-        message["From"] = Header(from_header_value, "utf-8")
+        message["From"] = formataddr(pair=(from_name, username))
+        message["To"] = ",".join(to_addrs) if to_addrs else ""
         message["Subject"] = Header(title, "utf-8")
         return message
 
@@ -213,10 +207,9 @@ class EmailChannel(CustomChannel):
         username= self.get_config_item(config_key="username")
         password= self.get_config_item(config_key="password")
         to_addrs= self.__split_multstr(self.get_config_item(config_key="to_addrs"))
-        message = self.__build_message(title=title, text=text, ext_info=ext_info)
+        message = self.__build_message(title=title, text=text, to_addrs=to_addrs, ext_info=ext_info)
         try:
-            smtp = smtplib.SMTP(host=smtp_host, port=smtp_port, timeout=60)
-            smtp.starttls()
+            smtp = smtplib.SMTP_SSL(host=smtp_host, port=smtp_port, timeout=60)
             smtp.login(user=username, password=password)
             smtp.sendmail(from_addr=username, to_addrs=to_addrs, msg=message.as_string())
             logger.info(f"发送消息成功: channel = {self.comp_name}, type = {type_str}")
