@@ -208,6 +208,7 @@ class EmailChannel(CustomChannel):
         password= self.get_config_item(config_key="password")
         to_addrs= self.__split_multstr(self.get_config_item(config_key="to_addrs"))
         message = self.__build_message(title=title, text=text, to_addrs=to_addrs, ext_info=ext_info)
+        smtp = None
         try:
             smtp = smtplib.SMTP_SSL(host=smtp_host, port=smtp_port, timeout=60)
             smtp.login(user=username, password=password)
