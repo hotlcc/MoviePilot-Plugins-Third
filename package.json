@@ -3,11 +3,12 @@
         "name": "下载器助手",
         "description": "自动标签、自动做种、自动删种。",
         "labels": "下载管理,仪表板",
-        "version": "3.5.6",
+        "version": "3.5.7",
         "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png",
         "author": "hotlcc",
         "level": 1,
         "history": {
+            "v3.5.7": "修正Tracker域名解析缺陷。",
             "v3.5.6": "修正活动种子仪表板状态显示。",
             "v3.5.5": "支持配置【事件删种策略】。更新后可能需要重启MP！",
             "v3.5.4": "修复v3.5.3中qb自动删种报错的问题。",

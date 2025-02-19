@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "3.5.6"
+    plugin_version = "3.5.7"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -1287,8 +1287,10 @@ class DownloaderHelper(_PluginBase):
         """
         if not url:
             return None
-        scheme, netloc = StringUtils.get_url_netloc(url)
-        return netloc
+        _, netloc = StringUtils.get_url_netloc(url)
+        if not netloc:
+            return None
+        return netloc.split(':')[0]
 
     def __get_main_domain(self, domain: str) -> Optional[str]:
         """
