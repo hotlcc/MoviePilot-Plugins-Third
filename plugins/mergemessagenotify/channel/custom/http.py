@@ -299,6 +299,8 @@ class HttpChannel(CustomChannel):
             body = json.dumps(json.loads(body))
         elif is_json and content_type == "application/x-www-form-urlencoded":
             body = json.loads(body)
+        elif not body:
+            body = None
         # 代理
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
         # 发起请求
