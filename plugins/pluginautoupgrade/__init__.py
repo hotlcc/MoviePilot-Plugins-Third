@@ -25,7 +25,7 @@ class PluginAutoUpgrade(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/PluginAutoUpgrade.png"
     # 插件版本
-    plugin_version = "2.2"
+    plugin_version = "2.3"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -679,8 +679,12 @@ class PluginAutoUpgrade(_PluginBase):
         for result in results:
             if not result:
                 continue
-            success_fail_text = "成功" if result.get('success') else "失败"
-            text += f"【{result.get('plugin_name')}】[v{result.get('old_plugin_version')} -> v{result.get('new_plugin_version')}][{success_fail_text}]：{result.get('message')}\n"
+            text += f"【{result.get('plugin_name')}】[v{result.get('old_plugin_version')} -> v{result.get('new_plugin_version')}]"
+            if result.get('success'):
+                text += f"[成功]：{result.get('upgrade_info')}"
+            else:
+                text += f"[失败]：{result.get('message')}"
+            text += "\n"
         return text
 
     def __save_upgrade_records(self, records: List[Dict[str, Any]]):
