@@ -231,7 +231,10 @@ class NtfyChannel(CustomChannel):
         data = text or title
         image = ext_info.get("image")
         if image:
-            data += f"\n\n![]({image})"
+            if self.get_config_item(config_key="enable_md"):
+                data += f"\n\n![]({image})"
+            else:
+                data += f"\n\n{image}"
         return data.encode(encoding="utf-8")
 
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
