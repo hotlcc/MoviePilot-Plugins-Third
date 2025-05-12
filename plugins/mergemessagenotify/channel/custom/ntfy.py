@@ -26,6 +26,7 @@ class NtfyChannel(CustomChannel):
     config_default: Dict[str, Any] = {
         "server_url": "https://ntfy.sh",
         "topic": "MoviePilot",
+        "enable_md": True
     }
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
@@ -128,6 +129,20 @@ class NtfyChannel(CustomChannel):
                         'hint': '推送消息时是否使用网络代理。'
                     }
                 }]
+            }, {
+                'component': 'VCol',
+                'props': {
+                    'cols': 12,
+                    'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                },
+                'content': [{
+                    'component': 'VSwitch',
+                    'props': {
+                        'model': 'enable_md',
+                        'label': '使用markdown',
+                        'hint': '推送消息时是否使用markdown格式。'
+                    }
+                }]
             }]
         }
         row2 = self.build_notify_type_select_row_element()
@@ -185,10 +200,11 @@ class NtfyChannel(CustomChannel):
         """
         构造headers
         """
-        # headers
         headers = {
-            "X-Markdown": "true"
         }
+        # X-Markdown
+        if self.get_config_item(config_key="enable_md"):
+            headers["X-Markdown"] = "true"
         # X-Title
         if title:
             headers["X-Title"] = title.encode(encoding="utf-8")
