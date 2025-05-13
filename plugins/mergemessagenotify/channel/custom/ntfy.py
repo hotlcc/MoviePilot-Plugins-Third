@@ -196,7 +196,7 @@ class NtfyChannel(CustomChannel):
         raw_str = f"{username or ''}:{password or ''}"
         return cls.__base64_encode(raw_str=raw_str)
 
-    def __build_headers(self, title: str, type: NotificationType) -> dict:
+    def __build_headers(self, title: str, type: NotificationType, image: str = None) -> dict:
         """
         构造headers
         """
@@ -211,6 +211,9 @@ class NtfyChannel(CustomChannel):
         # X-Tags
         if type:
             headers["X-Tags"] = type.value.encode(encoding="utf-8")
+        # X-Attach, 如果不是md，则加X-Attach
+        if image and not self.get_config_item(config_key="enable_md"):
+            headers["X-Attach"] = image
         # Authorization
         token = self.get_config_item(config_key="token")
         if token:
@@ -233,8 +236,6 @@ class NtfyChannel(CustomChannel):
         if image:
             if self.get_config_item(config_key="enable_md"):
                 data += f"\n\n![]({image})"
-            else:
-                data += f"\n\n{image}"
         return data.encode(encoding="utf-8")
 
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
@@ -249,7 +250,7 @@ class NtfyChannel(CustomChannel):
         if not self.__check_config():
             return False
         send_url = self.__build_url()
-        headers = self.__build_headers(title=title, type=type)
+        headers = self.__build_headers(title=title, type=type, image=ext_info.get("image"))
         data = self.__build_data(title=title, text=text, ext_info=ext_info)
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
         res = requests.post(url=send_url, headers=headers, data=data, proxies=proxies)
