@@ -26,6 +26,7 @@ class NtfyChannel(CustomChannel):
     config_default: Dict[str, Any] = {
         "server_url": "https://ntfy.sh",
         "topic": "MoviePilot",
+        "enable_md": True
     }
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
@@ -128,6 +129,20 @@ class NtfyChannel(CustomChannel):
                         'hint': '推送消息时是否使用网络代理。'
                     }
                 }]
+            }, {
+                'component': 'VCol',
+                'props': {
+                    'cols': 12,
+                    'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                },
+                'content': [{
+                    'component': 'VSwitch',
+                    'props': {
+                        'model': 'enable_md',
+                        'label': '使用markdown',
+                        'hint': '推送消息时是否使用markdown格式。'
+                    }
+                }]
             }]
         }
         row2 = self.build_notify_type_select_row_element()
@@ -181,20 +196,24 @@ class NtfyChannel(CustomChannel):
         raw_str = f"{username or ''}:{password or ''}"
         return cls.__base64_encode(raw_str=raw_str)
 
-    def __build_headers(self, title: str, type: NotificationType) -> dict:
+    def __build_headers(self, title: str, type: NotificationType, image: str = None) -> dict:
         """
         构造headers
         """
-        # headers
         headers = {
-            "X-Markdown": "true"
         }
+        # X-Markdown
+        if self.get_config_item(config_key="enable_md"):
+            headers["X-Markdown"] = "true"
         # X-Title
         if title:
             headers["X-Title"] = title.encode(encoding="utf-8")
         # X-Tags
         if type:
             headers["X-Tags"] = type.value.encode(encoding="utf-8")
+        # X-Attach, 如果不是md，则加X-Attach
+        if image and not self.get_config_item(config_key="enable_md"):
+            headers["X-Attach"] = image
         # Authorization
         token = self.get_config_item(config_key="token")
         if token:
@@ -215,7 +234,8 @@ class NtfyChannel(CustomChannel):
         data = text or title
         image = ext_info.get("image")
         if image:
-            data += f"\n\n![]({image})"
+            if self.get_config_item(config_key="enable_md"):
+                data += f"\n\n![]({image})"
         return data.encode(encoding="utf-8")
 
     def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
@@ -230,7 +250,7 @@ class NtfyChannel(CustomChannel):
         if not self.__check_config():
             return False
         send_url = self.__build_url()
-        headers = self.__build_headers(title=title, type=type)
+        headers = self.__build_headers(title=title, type=type, image=ext_info.get("image"))
         data = self.__build_data(title=title, text=text, ext_info=ext_info)
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
         res = requests.post(url=send_url, headers=headers, data=data, proxies=proxies)
