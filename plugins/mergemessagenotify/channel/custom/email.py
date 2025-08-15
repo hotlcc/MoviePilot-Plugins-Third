@@ -4,9 +4,12 @@ from email.utils import formataddr
 from enum import Enum
 import smtplib
 from typing import Tuple, List, Dict, Any, Union
+from datetime import datetime
+import pytz
 
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
+from app.core.config import settings
 from app.log import logger
 
 
@@ -207,6 +210,7 @@ class EmailChannel(CustomChannel):
         from_name = self.get_config_item(config_key="from_name")
         username = self.get_config_item(config_key="username")
         message["From"] = formataddr(pair=(from_name, username))
+        message["Date"] = datetime.now(tz=pytz.timezone(settings.TZ)).strftime("%a, %d %b %Y %H:%M:%S %z")
         message["To"] = ",".join(to_addrs) if to_addrs else ""
         message["Subject"] = Header(title, "utf-8")
         return message
