@@ -184,9 +184,9 @@ class DingtalkRobotChannel(CustomChannel):
         if image or title:
             markdown = ""
             if title:
-                markdown += f"#### {title}\n\n"
+                markdown += f"# {title}\n\n"
             if text:
-                markdown += f"{text}\n\n"
+                markdown += f"> {text}\n\n"
             if image:
                 markdown += f"![]({image})"
             return "markdown", {
