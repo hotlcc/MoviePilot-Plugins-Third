@@ -2,6 +2,7 @@ from cachetools import Cache
 from enum import Enum
 from pydantic import BaseModel
 from threading import RLock
+from typing import Optional
 
 from app.schemas.types import MediaType
 
@@ -10,12 +11,12 @@ class MediaDigest(BaseModel):
     """
     媒体摘要
     """
-    title: str = None
-    year: str = None
-    type: MediaType = None
-    tmdb_id: str = None
-    imdb_id: str = None
-    tvdb_id: str = None
+    title: Optional[str] = None
+    year: Optional[str] = None
+    type: Optional[MediaType] = None
+    tmdb_id: Optional[str] = None
+    imdb_id: Optional[str] = None
+    tvdb_id: Optional[str] = None
 
 
 class MediaDataSource(Enum):
