@@ -15,5 +15,5 @@ MoviePilot第三方插件市场：[https://github.com/hotlcc/MoviePilot-Plugins-
 |2|插件自动升级|[2.3](plugins/pluginautoupgrade)|♻ 已兼容|定时检测、升级插件。|
 |3|聚合站点开关|[1.2](plugins/mergesiteswitch)|♻ 已兼容|统一管理所有与站点相关的开关。|
 |4|系统进程|[1.1](plugins/systemprocess)|♻ 已兼容|查看系统进程，支持仪表板|
-|5|影视收藏助手|[1.12](plugins/mediacollecthelper)|♻ 已兼容|自动收藏MP中的影视信息到其它介质。|
+|5|影视收藏助手|[1.13](plugins/mediacollecthelper)|♻ 已兼容|自动收藏MP中的影视信息到其它介质。|
 |6|聚合消息通知|[1.15](plugins/mergemessagenotify)|♻ 已兼容|消息通知，一个插件就够了。|
