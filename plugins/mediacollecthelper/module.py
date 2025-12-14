@@ -15,7 +15,7 @@ class MediaDigest(BaseModel):
     type: MediaType = None
     tmdb_id: int = None
     imdb_id: str = None
-    tvdb_id: str = None
+    tvdb_id: int = None
 
 
 class MediaDataSource(Enum):
