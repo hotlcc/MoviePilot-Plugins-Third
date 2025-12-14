@@ -29,7 +29,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "1.14"
+    plugin_version = "1.15"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -864,7 +864,10 @@ class MediaCollectHelper(_PluginBase):
         """
         if not msi or not msi.tmdbid:
             return None
-        return MediaDigest(title=msi.title, year=msi.year, type=MediaType(msi.item_type), tmdb_id=msi.tmdbid, imdb_id=msi.imdbid, tvdb_id=msi.tvdbid)
+        tmdb_id = str(msi.tmdbid) if msi.tmdbid else None
+        imdb_id = str(msi.imdbid) if msi.imdbid else None
+        tvdb_id = str(msi.tvdbid) if msi.tvdbid else None
+        return MediaDigest(title=msi.title, year=msi.year, type=MediaType(msi.item_type), tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
 
     def __get_media_data_from_subscribe(self) -> List[MediaDigest]:
         """
@@ -888,7 +891,10 @@ class MediaCollectHelper(_PluginBase):
         """
         if not sub or not sub.tmdbid:
             return None
-        return MediaDigest(title=sub.name, year=sub.year, type=MediaType(sub.type), tmdb_id=sub.tmdbid, imdb_id=sub.imdbid, tvdb_id=sub.tvdbid)
+        tmdb_id = str(sub.tmdbid) if sub.tmdbid else None
+        imdb_id = str(sub.imdbid) if sub.imdbid else None
+        tvdb_id = str(sub.tvdbid) if sub.tvdbid else None
+        return MediaDigest(title=sub.name, year=sub.year, type=MediaType(sub.type), tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
 
     def __get_media_data_from_subscribe_history(self) -> List[MediaDigest]:
         """
@@ -912,7 +918,10 @@ class MediaCollectHelper(_PluginBase):
         """
         if not sub_his or not sub_his.tmdbid:
             return None
-        return MediaDigest(title=sub_his.name, year=sub_his.year, type=MediaType(sub_his.type), tmdb_id=sub_his.tmdbid, imdb_id=sub_his.imdbid, tvdb_id=sub_his.tvdbid)
+        tmdb_id = str(sub_his.tmdbid) if sub_his.tmdbid else None
+        imdb_id = str(sub_his.imdbid) if sub_his.imdbid else None
+        tvdb_id = str(sub_his.tvdbid) if sub_his.tvdbid else None
+        return MediaDigest(title=sub_his.name, year=sub_his.year, type=MediaType(sub_his.type), tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
 
     def __get_media_data(self) -> List[MediaDigest]:
         """
@@ -981,7 +990,10 @@ class MediaCollectHelper(_PluginBase):
                 logger.warn(f'短期内已经处理过该媒体，忽略事件: title = {mediainfo.title}, year = {mediainfo.year}, type = {mediainfo.type}, tmdb_id = {mediainfo.tmdb_id}')
                 return
             logger.info('转移完成事件监听任务执行开始...')
-            md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, tmdb_id=mediainfo.tmdb_id, imdb_id=mediainfo.imdb_id, tvdb_id=mediainfo.tvdb_id)
+            tmdb_id = str(mediainfo.tmdb_id) if mediainfo.tmdb_id else None
+            imdb_id = str(mediainfo.imdb_id) if mediainfo.imdb_id else None
+            tvdb_id = str(mediainfo.tvdb_id) if mediainfo.tvdb_id else None
+            md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
             self.__async_block_run(media_data=[md])
             logger.info('转移完成事件监听任务执行成功')
         except Exception as e:
@@ -1011,7 +1023,10 @@ class MediaCollectHelper(_PluginBase):
                 logger.warn('插件服务正在退出，忽略事件')
                 return
             logger.info('订阅已添加事件监听任务执行开始...')
-            md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=media_type, tmdb_id=mediainfo.get("tmdb_id"), imdb_id=mediainfo.get("imdb_id"), tvdb_id=mediainfo.get("tvdb_id"))
+            tmdb_id = str(mediainfo.get("tmdb_id")) if mediainfo.get("tmdb_id") else None
+            imdb_id = str(mediainfo.get("imdb_id")) if mediainfo.get("imdb_id") else None
+            tvdb_id = str(mediainfo.get("tvdb_id")) if mediainfo.get("tvdb_id") else None
+            md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=media_type, tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
             self.__async_block_run(media_data=[md])
             logger.info('订阅已添加事件监听任务执行成功')
         except Exception as e:
