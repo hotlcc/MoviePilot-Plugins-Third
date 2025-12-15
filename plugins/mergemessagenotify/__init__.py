@@ -18,7 +18,7 @@ class MergeMessageNotify(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/MergeMessageNotify_121.png"
     # 插件版本
-    plugin_version = "1.16"
+    plugin_version = "1.17"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
