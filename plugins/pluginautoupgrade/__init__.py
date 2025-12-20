@@ -25,7 +25,7 @@ class PluginAutoUpgrade(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/PluginAutoUpgrade.png"
     # 插件版本
-    plugin_version = "2.3"
+    plugin_version = "2.4"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -57,6 +57,9 @@ class PluginAutoUpgrade(_PluginBase):
         'cron': '0,5 0/4 * * *',
         'save_record_quantity': 100,
         'display_record_quantity': 10,
+        'last_upgrade_dashboard_enable': True,
+        'last_upgrade_dashboard_num': 10
+
     }
     # 插件用户配置
     __config: Dict[str, Any] = {}
@@ -187,10 +190,7 @@ class PluginAutoUpgrade(_PluginBase):
                             'hint': '保存插件配置后是否立即触发一次插件任务运行'
                         }
                     }]
-                }]
-            }, {
-                'component': 'VRow',
-                'content': [{
+                }, {
                     'component': 'VCol',
                     'props': {
                         'cols': 12,
@@ -237,14 +237,11 @@ class PluginAutoUpgrade(_PluginBase):
                             'hint': f'设置插件数据页最多展示多少条插件升级记录。缺省时为{display_record_quantity}。'
                         }
                     }]
-                }]
-            }, {
-                'component': 'VRow',
-                'content': [{
+                }, {
                     'component': 'VCol',
                     'props': {
                         'cols': 12,
-                        'xxl': 6, 'xl': 6, 'lg': 6, 'md': 6, 'sm': 6, 'xs': 12
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
                     },
                     'content': [{
                         'component': 'VSelect',
@@ -261,7 +258,7 @@ class PluginAutoUpgrade(_PluginBase):
                     'component': 'VCol',
                     'props': {
                         'cols': 12,
-                        'xxl': 6, 'xl': 6, 'lg': 6, 'md': 6, 'sm': 6, 'xs': 12
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
                     },
                     'content': [{
                         'component': 'VSelect',
@@ -272,6 +269,20 @@ class PluginAutoUpgrade(_PluginBase):
                             'chips': True,
                             'items': installed_online_plugin_options,
                             'hint': '选择哪些插件需要排除升级（在【包含的插件】的基础上排除），不选时默认不排除。'
+                        }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VSwitch',
+                        'props': {
+                            'model': 'last_upgrade_dashboard_enable',
+                            'label': '启用最近升级仪表板',
+                            'hint': '是否启用最近升级仪表板。'
                         }
                     }]
                 }]
@@ -386,6 +397,68 @@ class PluginAutoUpgrade(_PluginBase):
                 'content': contents
             }]
         }]
+
+    def get_dashboard_meta(self) -> Optional[List[Dict[str, str]]]:
+        """
+        获取插件仪表盘元信息
+        返回示例：
+            [{
+                "key": "dashboard1", // 仪表盘的key，在当前插件范围唯一
+                "name": "仪表盘1" // 仪表盘的名称
+            }, {
+                "key": "dashboard2",
+                "name": "仪表盘2"
+            }]
+        """
+        dashboard_meta = []
+        if not self.get_state():
+            return dashboard_meta
+        last_upgrade_dashboard_enable = True if self.__get_config_item(config_key='last_upgrade_dashboard_enable') else False
+        if not last_upgrade_dashboard_enable:
+            return dashboard_meta
+        dashboard_meta.append({
+            'key': 'last_upgrade',
+            'name': '最近升级插件'
+        })
+        return dashboard_meta
+
+    def get_dashboard(self, key: str = None, **kwargs) -> Optional[Tuple[Dict[str, Any], Dict[str, Any], List[dict]]]:
+        """
+        获取插件仪表盘页面，需要返回：1、仪表板col配置字典；2、全局配置（自动刷新等）；3、仪表板页面元素配置json（含数据）
+        1、col配置参考：
+        {
+            "cols": 12, "md": 6
+        }
+        2、全局配置参考：
+        {
+            "refresh": 10 // 自动刷新时间，单位秒
+        }
+        3、页面配置使用Vuetify组件拼装，参考：https://vuetifyjs.com/
+
+        kwargs参数可获取的值：1、user_agent：浏览器UA
+
+        :param key: 仪表盘key，根据指定的key返回相应的仪表盘数据，缺省时返回一个固定的仪表盘数据（兼容旧版）
+        """
+        if not key or not self.get_dashboard_meta():
+            return None
+        # 列配置
+        cols = {
+            'cols': 12,
+            'md': 4,
+        }
+        # 全局配置
+        attrs = {
+            'title': '最近升级插件'
+        }
+        # 页面元素
+        elements = [{
+            'component': 'VList',
+            'props': {
+                'class': 'card-list',
+            },
+            'content': self.__get_dashboard_last_upgrade_list_items()
+        }]
+        return cols, attrs, elements
 
     def stop_service(self):
         """
@@ -741,3 +814,89 @@ class PluginAutoUpgrade(_PluginBase):
             # 兼容处理
             version_history = plugin.history.get(version)
         return version_history
+
+    def __get_text_avatar_by_name(self, plugin_name: str) -> str:
+        """
+        根据插件名称获取文本图标
+        """
+        if not plugin_name:
+            return '<无名插件>'
+        text_avatar = plugin_name[0]
+        if len(text_avatar.encode('utf-8')) <= 1:
+            text_avatar = plugin_name[0:2]
+        return text_avatar
+
+    def __get_dashboard_last_upgrade_list_items(self) -> List[dict]:
+        """
+        获取最近升级仪表板items
+        """
+        # 获取升级记录
+        upgrade_records = self.__get_upgrade_records_to_page_data()
+        if not upgrade_records:
+            return []
+        return [{
+            'component': 'div',
+            'props': {
+                'class': 'v-list-item v-theme--light v-list-item--density-default v-list-item--one-line rounded-md v-list-item--variant-text',
+                'aria-selected': 'false',
+            },
+            'content': [{
+                'component': 'div',
+                'props': {
+                    'class': 'v-list-item__prepend'
+                },
+                'content': [{
+                    'component': 'VAvatar',
+                    'props': {
+                        'size': '40',
+                        'variant': 'tonal',
+                        'class': 'me-3'
+                    },
+                    'text': self.__get_text_avatar_by_name(plugin_name=upgrade_record.get('plugin_name'))
+                }, {
+                    'component': 'div',
+                    'props': {
+                        'class': 'v-list-item__spacer'
+                    }
+                }]
+            }, {
+                'component': 'div',
+                'props': {
+                    'class': 'v-list-item__content'
+                },
+                'content': [{
+                    'component': 'VListItemTitle',
+                    'props': {
+                        'class': 'mb-1'
+                    },
+                    'content': [{
+                        'component': 'span',
+                        'props': {
+                            'class': 'text-sm font-weight-medium'
+                        },
+                        'text': upgrade_record.get('plugin_name'),
+                    }]
+                }, {
+                    'component': 'VListItemSubtitle',
+                    'props': {
+                        'class': 'text-xs'
+                    },
+                    'text': upgrade_record.get('datetime_str'),
+                }]
+            }, {
+                'component': 'div',
+                'props': {
+                    'class': 'v-list-item__append'
+                },
+                'content': [{
+                    'component': 'div',
+                    'content': [{
+                        'component': 'h4',
+                        'props': {
+                            'class': 'font-weight-medium'
+                        },
+                        'text': '成功' if upgrade_record.get('success') else '失败'
+                    }]
+                }]
+            }]
+        } for upgrade_record in upgrade_records if upgrade_record]
