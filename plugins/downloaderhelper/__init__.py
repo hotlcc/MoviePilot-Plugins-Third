@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "3.5.7"
+    plugin_version = "3.5.8"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -917,7 +917,7 @@ class DownloaderHelper(_PluginBase):
             attrs['refresh'] = self.__get_config_item('dashboard_widget_refresh')
 
         # 页面元素
-        elements = self.__get_dashboard_active_torrent_widget_elememts(downloader_id=downloader_id)
+        elements = self.__get_dashboard_active_torrent_widget_elements(downloader_id=downloader_id)
 
         return cols, attrs, elements
 
@@ -952,7 +952,7 @@ class DownloaderHelper(_PluginBase):
             attrs['refresh'] = self.__get_config_item('dashboard_speed_widget_refresh')
 
         # 页面元素
-        elements = self.__get_dashboard_speed_widget_elememts(downloader_id=downloader_id)
+        elements = self.__get_dashboard_speed_widget_elements(downloader_id=downloader_id)
 
         return cols, attrs, elements
 
@@ -2616,6 +2616,8 @@ class DownloaderHelper(_PluginBase):
                 if not torrent_hash or torrent_hash in torrent_hashs:
                     continue
                 torrents.append(downloading_torrent)
+        # 根据排除标签排除种子
+        torrents = [torrent for torrent in torrents if torrent and not self.__exists_exclude_tag(self.__split_tags(torrent.get('tags')))]
         # 按添加时间倒序排序
         torrents = sorted(torrents, key=lambda torrent: torrent.get(TorrentField.ADD_TIME.qb), reverse=True)
         return self.__convert_qbittorrent_torrents_data(torrents=torrents, fields=fields)
@@ -2749,6 +2751,8 @@ class DownloaderHelper(_PluginBase):
         torrents, _ = transmission.trc.get_recently_active_torrents(arguments=self.__build_transmission_field_arguments(fields=fields))
         if not torrents:
             return None
+        # 根据排除标签排除种子
+        torrents = [torrent for torrent in torrents if torrent and not self.__exists_exclude_tag(torrent.get('labels'))]
         # 按添加时间倒序排序
         torrents = sorted(torrents, key=lambda torrent: torrent.fields.get(TorrentField.ADD_TIME.tr), reverse=True)
         return self.__convert_transmission_torrents_data(torrents=torrents, fields=fields)
@@ -2861,7 +2865,7 @@ class DownloaderHelper(_PluginBase):
             logger.error(f'从tr种子中提取值异常: {str(e)}, torrent = {str(torrent.fields)}', exc_info=True)
             return None
 
-    def __get_dashboard_active_torrent_widget_elememts(self, downloader_id: str) -> list:
+    def __get_dashboard_active_torrent_widget_elements(self, downloader_id: str) -> list:
         """
         获取仪表板活动种子组件元素
         """
@@ -2976,7 +2980,7 @@ class DownloaderHelper(_PluginBase):
                 self.__ttl_cache[cache_key] = session
         return session
 
-    def __build_mdi_icon_svg_elememt(self, mdi_icon: str) -> dict:
+    def __build_mdi_icon_svg_element(self, mdi_icon: str) -> dict:
         """
         构造 svg mdi 图标元素
         """
@@ -3033,7 +3037,7 @@ class DownloaderHelper(_PluginBase):
                         'height': '21px'
                     }
                 },
-                'content': [self.__build_mdi_icon_svg_elememt(mdi_icon=mdi_icon)]
+                'content': [self.__build_mdi_icon_svg_element(mdi_icon=mdi_icon)]
             }, {
                 'component': 'div',
                 'props': {
@@ -3066,7 +3070,7 @@ class DownloaderHelper(_PluginBase):
             }]
         }
 
-    def __get_dashboard_speed_widget_elememts(self, downloader_id: str) -> list:
+    def __get_dashboard_speed_widget_elements(self, downloader_id: str) -> list:
         """
         获取仪表板实时速率组件元素
         """
