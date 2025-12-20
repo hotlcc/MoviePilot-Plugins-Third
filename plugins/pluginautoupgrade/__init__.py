@@ -25,7 +25,7 @@ class PluginAutoUpgrade(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/PluginAutoUpgrade.png"
     # 插件版本
-    plugin_version = "2.4"
+    plugin_version = "2.4.1"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -450,15 +450,23 @@ class PluginAutoUpgrade(_PluginBase):
         attrs = {
             'title': '最近升级插件'
         }
+        # 自定义样式
+        styles = [{
+            'component': 'style',
+            'type': 'text/css',
+            'text': '#last-upgrade-dashboard-card-list.card-list::-webkit-scrollbar {display: none;}'
+        }]
         # 页面元素
         elements = [{
             'component': 'VList',
             'props': {
+                'id': 'last-upgrade-dashboard-card-list',
                 'class': 'card-list',
+                'height': '250'
             },
             'content': self.__get_dashboard_last_upgrade_list_items()
         }]
-        return cols, attrs, elements
+        return cols, attrs, styles + elements
 
     def stop_service(self):
         """
@@ -837,7 +845,7 @@ class PluginAutoUpgrade(_PluginBase):
         return [{
             'component': 'div',
             'props': {
-                'class': 'v-list-item v-theme--light v-list-item--density-default v-list-item--one-line rounded-md v-list-item--variant-text',
+                'class': 'v-list-item v-list-item--density-default v-list-item--one-line rounded-md v-list-item--variant-text',
                 'aria-selected': 'false',
             },
             'content': [{
