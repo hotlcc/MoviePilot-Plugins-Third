@@ -25,7 +25,7 @@ class PluginAutoUpgrade(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/PluginAutoUpgrade.png"
     # 插件版本
-    plugin_version = "2.4.1"
+    plugin_version = "2.4.2"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -454,14 +454,13 @@ class PluginAutoUpgrade(_PluginBase):
         styles = [{
             'component': 'style',
             'type': 'text/css',
-            'text': '#last-upgrade-dashboard-card-list.card-list::-webkit-scrollbar {display: none;}'
+            'text': '.last-upgrade-dashboard-card-list.card-list::-webkit-scrollbar {display: none;}'
         }]
         # 页面元素
         elements = [{
             'component': 'VList',
             'props': {
-                'id': 'last-upgrade-dashboard-card-list',
-                'class': 'card-list',
+                'class': 'card-list last-upgrade-dashboard-card-list',
                 'height': '250'
             },
             'content': self.__get_dashboard_last_upgrade_list_items()
@@ -791,7 +790,7 @@ class PluginAutoUpgrade(_PluginBase):
         upgrade_record.update({"info": info})
         return upgrade_record
 
-    def __get_upgrade_records_to_page_data(self) -> List[Dict[str, Any]]:
+    def __get_upgrade_records_to_page_data(self, display_record_quantity: int = None) -> List[Dict[str, Any]]:
         """
         获取升级记录为page数据
         """
@@ -799,7 +798,8 @@ class PluginAutoUpgrade(_PluginBase):
         if not upgrade_records:
             return []
         # 只展示最近多少条
-        display_record_quantity = self.__get_config_item('display_record_quantity')
+        if not display_record_quantity:
+            display_record_quantity = self.__get_config_item('display_record_quantity')
         upgrade_records = upgrade_records[-display_record_quantity:]
         page_data = [self.__convert_upgrade_record_to_page_data(upgrade_record) for upgrade_record in upgrade_records if upgrade_record]
         # 按时间倒序
@@ -839,7 +839,7 @@ class PluginAutoUpgrade(_PluginBase):
         获取最近升级仪表板items
         """
         # 获取升级记录
-        upgrade_records = self.__get_upgrade_records_to_page_data()
+        upgrade_records = self.__get_upgrade_records_to_page_data(display_record_quantity=4)
         if not upgrade_records:
             return []
         return [{
