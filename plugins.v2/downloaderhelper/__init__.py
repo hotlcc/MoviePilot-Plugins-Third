@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "4.0.5"
+    plugin_version = "4.0.6"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -1009,10 +1009,17 @@ class DownloaderHelper(_PluginBase):
         if self.__check_downloader_instance(instance=service_info.instance):
             attrs['refresh'] = self.__get_config_item('dashboard_widget_refresh')
 
+        # 自定义样式
+        styles = [{
+            'component': 'style',
+            'type': 'text/css',
+            'text': '.dashboard-active-torrent-widget .v-table__wrapper::-webkit-scrollbar {display: none;}'
+        }]
+
         # 页面元素
         elements = self.__get_dashboard_active_torrent_widget_elements(service_info=service_info)
 
-        return cols, attrs, elements
+        return cols, attrs, styles + elements
 
     def __get_dashboard_speed_widget(self, downloader_name: str) -> Optional[Tuple[Dict[str, Any], Dict[str, Any], List[dict]]]:
         """
@@ -2926,6 +2933,7 @@ class DownloaderHelper(_PluginBase):
         return [{
             'component': 'VTable',
             'props': {
+                'class': 'dashboard-active-torrent-widget',
                 'hover': True,
                 'fixed-header': True,
                 'density': 'compact',
