@@ -25,7 +25,7 @@ class SubscribeCalendarIcs(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/SubscribeCalendarIcs.png"
     # 插件版本
-    plugin_version = "1.0.0"
+    plugin_version = "1.0.1"
     # 插件作者
     # noinspection SpellCheckingInspection
     plugin_author = "hotlcc"
@@ -334,6 +334,7 @@ class SubscribeCalendarIcs(_PluginBase):
                     event.add('UID', data.get('uid'))
                     event.add('DTSTART',vDate(start_date))
                     event.add('DTEND', vDate(end_date))
+                    event.add('URL', data.get('link'))
                     event.add('DTSTAMP', now)
                     event.add('CREATED', now)
                     event.add('LAST-MODIFIED', now)

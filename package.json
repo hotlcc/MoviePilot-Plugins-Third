@@ -158,12 +158,13 @@
         "name": "订阅日历.ics",
         "description": "提供ics订阅日历订阅链接。",
         "labels": "订阅",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/SubscribeCalendarIcs.png",
         "author": "hotlcc",
         "level": 1,
         "v2": true,
         "history": {
+            "v1.0.1": "修正日历URL。",
             "v1.0.0": "初始版本。"
         }
     }
