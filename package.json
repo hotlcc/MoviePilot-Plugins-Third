@@ -153,5 +153,18 @@
             "v1.1": "支持配置渠道策略；修复系统渠道配置修改后运行时不生效的问题。插件升级后需要重启MP！！！",
             "v1.0": "初始版本。"
         }
+    },
+    "SubscribeCalendarIcs": {
+        "name": "订阅日历.ics",
+        "description": "提供ics订阅日历订阅链接。",
+        "labels": "订阅",
+        "version": "1.0.0",
+        "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/SubscribeCalendarIcs.png",
+        "author": "hotlcc",
+        "level": 1,
+        "v2": true,
+        "history": {
+            "v1.0.0": "初始版本。"
+        }
     }
 }

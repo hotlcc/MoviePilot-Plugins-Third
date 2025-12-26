@@ -17,3 +17,4 @@ MoviePilot第三方插件市场：[https://github.com/hotlcc/MoviePilot-Plugins-
 |4|系统进程| [1.1](plugins/systemprocess)       |♻ 已兼容|查看系统进程，支持仪表板|
 |5|影视收藏助手| [1.16](plugins/mediacollecthelper) |♻ 已兼容|自动收藏MP中的影视信息到其它介质。|
 |6|聚合消息通知| [1.17](plugins/mergemessagenotify) |♻ 已兼容|消息通知，一个插件就够了。|
+|7|订阅日历.ics| [1.0.0](plugins/subscribecalendarics) |♻ 已兼容|提供ics订阅日历订阅链接。|
