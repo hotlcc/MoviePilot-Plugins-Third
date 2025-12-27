@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional, List, Tuple
 import asyncio
 # noinspection PyPackageRequirements
 from icalendar import Calendar, Event, vDate
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import pytz
 from fastapi.responses import StreamingResponse
 import io
@@ -25,7 +25,7 @@ class SubscribeCalendarIcs(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/SubscribeCalendarIcs.png"
     # 插件版本
-    plugin_version = "1.0.2"
+    plugin_version = "1.0.3"
     # 插件作者
     # noinspection SpellCheckingInspection
     plugin_author = "hotlcc"
@@ -100,7 +100,10 @@ class SubscribeCalendarIcs(_PluginBase):
         插件配置页面使用Vuetify组件拼装，参考：https://vuetifyjs.com/
         """
         # 建议的配置
-        config_suggest = {}
+        config_suggest = {
+            'limit_history': 30,
+            'limit_future': 30 * 6
+        }
         # 合并默认配置
         config_suggest.update(self.__config_default)
         # 表单内容
@@ -120,6 +123,38 @@ class SubscribeCalendarIcs(_PluginBase):
                             'model': 'enable',
                             'label': '启用插件',
                             'hint': '插件总开关。'
+                        }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VTextField',
+                        'props': {
+                            'model': 'limit_history',
+                            'label': '限制历史数量',
+                            'type': 'number',
+                            'suffix': '天',
+                            'hint': '限制历史日程的数量，缺省时不限制。'
+                        }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VTextField',
+                        'props': {
+                            'model': 'limit_future',
+                            'label': '限制未来数量',
+                            'type': 'number',
+                            'suffix': '天',
+                            'hint': '限制未来日程的数量，缺省时不限制。'
                         }
                     }]
                 }]
@@ -143,7 +178,7 @@ class SubscribeCalendarIcs(_PluginBase):
                         'xxl': 12, 'xl': 12, 'lg': 12, 'md': 12, 'sm': 12, 'xs': 12
                     },
                     'content': [{
-                        'component': 'h2',
+                        'component': 'h1',
                         'text': '请先启用插件'
                     }]
                 }, {
@@ -169,7 +204,7 @@ class SubscribeCalendarIcs(_PluginBase):
                         'xxl': 12, 'xl': 12, 'lg': 12, 'md': 12, 'sm': 12, 'xs': 12
                     },
                     'content': [{
-                        'component': 'h2',
+                        'component': 'h1',
                         'text': '订阅地址'
                     }]
                 }, {
@@ -198,8 +233,7 @@ class SubscribeCalendarIcs(_PluginBase):
         """
         pass
 
-    @staticmethod
-    def __fix_config(config: dict) -> dict | None:
+    def __fix_config(self, config: dict) -> dict | None:
         """
         修正配置
         """
@@ -212,6 +246,14 @@ class SubscribeCalendarIcs(_PluginBase):
         }
         if config == reset_config:
             return None
+        config_keys = config.keys()
+        if 'limit_history' in config_keys:
+            limit_history = config.get("limit_history")
+            config['limit_history'] = int(limit_history) if limit_history else None
+        if 'limit_future' in config_keys:
+            limit_future = config.get("limit_future")
+            config['limit_future'] = int(limit_future) if limit_future else None
+        self.update_config(config=config)
         return config
 
     def __get_config_item(self, config_key: str, use_default: bool = True) -> Any:
@@ -309,6 +351,27 @@ class SubscribeCalendarIcs(_PluginBase):
                     })
         return calendar_data
 
+    def __filter_by_date(self, cal_date: date) -> bool:
+        """
+        过滤数据
+        """
+        if not cal_date:
+            return False
+        limit_history = self.__get_config_item(config_key='limit_history')
+        limit_future = self.__get_config_item(config_key='limit_future')
+        if limit_history is None and limit_future is None:
+            return True
+        today = date.today()
+        if limit_history is not None:
+            history_date = today - timedelta(days=limit_history)
+            if cal_date < history_date:
+                return False
+        if limit_future is not None:
+            future_date = today + timedelta(days=limit_future)
+            if cal_date > future_date:
+                return False
+        return True
+
     # noinspection SpellCheckingInspection
     def __calendar_ics(self, apikey: str = None):
         """
@@ -328,11 +391,14 @@ class SubscribeCalendarIcs(_PluginBase):
                     if not data or not data.get('title') or not data.get('uid') or not data.get('date'):
                         continue
                     start_date = datetime.strptime(data.get('date'), '%Y-%m-%d').date()
+                    if not self.__filter_by_date(cal_date=start_date):
+                        continue
                     end_date = start_date + timedelta(days=1)
                     event = Event()
-                    event.add('SUMMARY', data.get('title'))
                     event.add('UID', data.get('uid'))
-                    event.add('DTSTART',vDate(start_date))
+                    event.add('SUMMARY', data.get('title'))
+                    #event.add('DESCRIPTION', None)
+                    event.add('DTSTART', vDate(start_date))
                     event.add('DTEND', vDate(end_date))
                     event.add('URL', data.get('link'))
                     event.add('DTSTAMP', now)
