@@ -25,7 +25,7 @@ class SubscribeCalendarIcs(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/SubscribeCalendarIcs.png"
     # 插件版本
-    plugin_version = "1.0.1"
+    plugin_version = "1.0.2"
     # 插件作者
     # noinspection SpellCheckingInspection
     plugin_author = "hotlcc"
@@ -319,7 +319,7 @@ class SubscribeCalendarIcs(_PluginBase):
         cal.add('PRODID', '-//SubscribeCalendarIcs//github.com/hotlcc//CN')
         cal.add('X-WR-CALNAME','MoviePilot订阅')
         cal.add('X-APPLE-CALENDAR-COLOR','#9b75ef')
-        if apikey == settings.API_TOKEN:
+        if apikey == settings.API_TOKEN and self.get_state():
             calendar_data = asyncio.run(self.__get_calendar_data())
             if calendar_data:
                 tz = pytz.timezone('Asia/Shanghai')
