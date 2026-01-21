@@ -11,10 +11,10 @@ MoviePilot第三方插件市场：[https://github.com/hotlcc/MoviePilot-Plugins-
 
 |序号|名称| MP v1 版本                           |MP v2 版本|功能简述|
 |---|---|------------------------------------|---|---|
-|1|下载器助手| [3.5.9](plugins/downloaderhelper)  |✅ 已适配 [4.0.6](plugins.v2/downloaderhelper)|自动标签、自动做种、自动删种。|
+|1|下载器助手| [3.5.10](plugins/downloaderhelper)  |✅ 已适配 [4.0.7](plugins.v2/downloaderhelper)|自动标签、自动做种、自动删种。|
 |2|插件自动升级| [2.4.2](plugins/pluginautoupgrade)   |♻ 已兼容|定时检测、升级插件。|
 |3|聚合站点开关| [1.2](plugins/mergesiteswitch)     |♻ 已兼容|统一管理所有与站点相关的开关。|
 |4|系统进程| [1.1](plugins/systemprocess)       |♻ 已兼容|查看系统进程，支持仪表板|
-|5|影视收藏助手| [1.16](plugins/mediacollecthelper) |♻ 已兼容|自动收藏MP中的影视信息到其它介质。|
-|6|聚合消息通知| [1.17](plugins/mergemessagenotify) |♻ 已兼容|消息通知，一个插件就够了。|
+|5|影视收藏助手| [1.17](plugins/mediacollecthelper) |♻ 已兼容|自动收藏MP中的影视信息到其它介质。|
+|6|聚合消息通知| [1.18](plugins/mergemessagenotify) |♻ 已兼容|消息通知，一个插件就够了。|
 |7|订阅日历.ics| [1.0.3](plugins/subscribecalendarics) |♻ 已兼容|提供ics订阅日历订阅链接。|

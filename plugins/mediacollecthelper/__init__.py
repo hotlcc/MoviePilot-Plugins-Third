@@ -29,7 +29,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "1.16"
+    plugin_version = "1.17"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -598,6 +598,9 @@ class MediaCollectHelper(_PluginBase):
             'content': [{
                 'component': 'VTab',
                 'props': {
+                    'style': {
+                        'text-transform': 'none',
+                    },
                     'value': self.__build_comp_form_tab_value(key=key)
                 },
                 'text': obj.comp_name

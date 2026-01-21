@@ -36,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "4.0.6"
+    plugin_version = "4.0.7"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -794,6 +794,9 @@ class DownloaderHelper(_PluginBase):
         return [{
             'component': 'VTab',
             'props': {
+                'style': {
+                    'text-transform': 'none',
+                },
                 'value': downloader_name
             },
             'text': downloader_name
