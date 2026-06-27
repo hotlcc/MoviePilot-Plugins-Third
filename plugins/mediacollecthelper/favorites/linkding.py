@@ -271,6 +271,7 @@ class LinkdingFavorites(Favorites):
                 logger.info(f"收藏影视后: 本次收藏数量未超过记忆阈{memory_threshold}，重置记忆完成")
             return success_list
         # 数量少时不做历史存在性判断
+        """ # 注掉这段防止重复添加导致linkding反复下载图标进一步导致在代理失效场景丢失图标
         if total <= 10:
             logger.info(f"收藏影视前: 本次数量少（不超过10），直接收藏")
             if self.__exit_event.is_set():
@@ -284,6 +285,7 @@ class LinkdingFavorites(Favorites):
                 self.__add_memory(memory=success_media_unique_keys)
                 logger.info(f"收藏影视后: 追加了{len(success_media_unique_keys)}个记忆")
             return success_list
+        """
         # 如果先前有记忆，则通过记忆判断是否已经添加
         if memory:
             media_data = [mdata for mdata in media_data if mdata and mdata.tmdb_id and self.__build_media_unique_key_by_media(media_data=mdata) not in memory]
