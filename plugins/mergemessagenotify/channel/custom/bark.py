@@ -1,18 +1,18 @@
 import base64
-from typing import Tuple, List, Dict, Any
-from enum import Enum
-import requests
 import json as lib_json
+from enum import Enum
+from typing import Tuple, List, Dict, Any
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+import requests
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding as lib_padding
-from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from app.core.config import settings
+from app.log import logger
 from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
-from app.log import logger
-from app.core.config import settings
 
 
 class Sound(Enum):
@@ -198,7 +198,7 @@ class BarkChannel(CustomChannel):
                             {"title": "时效性通知，可在专注状态显示", "value": "timeSensitive"},
                             {"title": "仅添加到通知列表而不亮屏提醒", "value": "passive"},
                         ],
-                        'hint': '选填。可以为推送设置不同的铃声。缺省时为“立即亮屏显示通知”。'
+                        'hint': '选填。可以为推送设置不同的通知级别。缺省时为“立即亮屏显示通知”。'
                     }
                 }]
             }, {
