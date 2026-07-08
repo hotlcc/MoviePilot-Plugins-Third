@@ -291,10 +291,31 @@ class HttpChannel(CustomChannel):
         logger.info(f"HTTP请求 >>> 请求参数: {params}")
         # 请求体
         body = self.get_config_item(config_key="body")
-        body = self.render_template(text=body, variables=template_variables)
+        # 判断Content-Type
+        content_type = self.__get_dict_value_ignorecase(data=headers, key="Content-Type")
+        # JSON格式化：如果Content-Type是application/json，预先对模板变量中的字符串值
+        # 做JSON转义，防止${text}等替换时带入换行符、引号、反斜杠等破坏JSON结构。
+        if content_type == "application/json" and body:
+            escaped_vars = {}
+            for k, v in template_variables.items():
+                if isinstance(v, str):
+                    # json.dumps生成"value"格式，去掉首尾引号得到JSON安全的字符串内容
+                    # 这样${text}替换后：换行符→\n，引号→\"，反斜杠→\\
+                    escaped_vars[k] = json.dumps(v, ensure_ascii=False)[1:-1]
+                elif v is None:
+                    escaped_vars[k] = "null"
+                elif isinstance(v, bool):
+                    escaped_vars[k] = "true" if v else "false"
+                elif isinstance(v, (int, float)):
+                    escaped_vars[k] = v
+                else:
+                    # 其他类型（枚举等）转字符串后JSON转义
+                    escaped_vars[k] = json.dumps(str(v), ensure_ascii=False)[1:-1]
+            body = self.render_template(text=body, variables=escaped_vars)
+        else:
+            body = self.render_template(text=body, variables=template_variables)
         logger.info(f"HTTP请求 >>> 请求体: {body}")
         is_json = self.__is_json(s=body)
-        content_type = self.__get_dict_value_ignorecase(data=headers, key="Content-Type")
         if is_json and content_type == "application/json":
             body = json.dumps(json.loads(body))
         elif is_json and content_type == "application/x-www-form-urlencoded":
