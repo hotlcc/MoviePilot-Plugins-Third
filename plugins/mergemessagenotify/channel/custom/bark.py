@@ -1,7 +1,8 @@
 import base64
 import json as lib_json
 from enum import Enum
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
+import uuid
 
 import requests
 from cryptography.exceptions import InvalidTag
@@ -284,7 +285,7 @@ class BarkChannel(CustomChannel):
                         'component': 'VCol',
                         'props': {
                             'cols': 12,
-                            'xxl': 6, 'xl': 6, 'lg': 6, 'md': 6, 'sm': 6, 'xs': 12
+                            'xxl': 12, 'xl': 12, 'lg': 12, 'md': 12, 'sm': 12, 'xs': 12
                         },
                         'content': [{
                             'component': 'VSwitch',
@@ -360,20 +361,6 @@ class BarkChannel(CustomChannel):
                                 'model': 'cipher_key',
                                 'label': '密钥（Key）',
                                 'hint': '必填。密钥（Key）。'
-                            }
-                        }]
-                    }, {
-                        'component': 'VCol',
-                        'props': {
-                            'cols': 12,
-                            'xxl': 6, 'xl': 6, 'lg': 6, 'md': 6, 'sm': 6, 'xs': 12
-                        },
-                        'content': [{
-                            'component': 'VTextField',
-                            'props': {
-                                'model': 'cipher_iv',
-                                'label': '初始向量（Iv）',
-                                'hint': '初始向量（Iv）。'
                             }
                         }]
                     }]
@@ -489,23 +476,6 @@ class BarkChannel(CustomChannel):
                 logger.warn(f"配置检查不通过: channel = {self.comp_name}, 加密密钥（Key）不是32位")
                 return False
 
-        # Iv
-        cipher_iv: str = self.get_config_item(config_key="cipher_iv") or ""
-        cipher_iv_bytes = cipher_iv.encode("utf-8")
-        cipher_iv_bytes_len = len(cipher_iv_bytes)
-        if cipher_mode == "CBC" or cipher_mode == "GCM":
-            if not cipher_iv:
-                logger.warn(f"配置检查不通过: channel = {self.comp_name}, 加密初始向量（Iv）无效: {cipher_iv}")
-                return False
-            if cipher_mode == "CBC":
-                if cipher_iv_bytes_len != 16:
-                    logger.warn(f"配置检查不通过: channel = {self.comp_name}, 加密初始向量（Iv）不是16位")
-                    return False
-            elif cipher_mode == "GCM":
-                if cipher_iv_bytes_len != 12:
-                    logger.warn(f"配置检查不通过: channel = {self.comp_name}, 加密初始向量（Iv）不是12位")
-                    return False
-
         return True
 
     def __build_url(self) -> str:
@@ -570,7 +540,7 @@ class BarkChannel(CustomChannel):
         return json
 
     def __cipher_text(self, plaintext: str,
-                      algorithm: str, mode: str, padding: str, key: str, iv: str) -> tuple[str, str]:
+                      algorithm: str, mode: str, padding: str, key: str) -> Tuple[Optional[str], Optional[str]]:
         """
         加密文本
         """
@@ -578,8 +548,6 @@ class BarkChannel(CustomChannel):
         plaintext_bytes = plaintext.encode("utf-8")
         key = key or ""
         key_bytes = key.encode("utf-8")
-        iv = iv or ""
-        iv_bytes = iv.encode("utf-8")
 
         if mode in ["CBC", "ECB"]:
             padder = lib_padding.PKCS7(128).padder()
@@ -597,17 +565,21 @@ class BarkChannel(CustomChannel):
                 ciphertext = base64.b64encode(ciphertext_bytes).decode("utf-8")
                 return ciphertext, None
             elif mode == "CBC":
+                cipher_iv = str(uuid.uuid4()).replace("-", "")[:16]
+                iv_bytes = cipher_iv.encode("utf-8")
                 cipher = Cipher(algorithm=algorithms.AES(key_bytes), mode=modes.CBC(iv_bytes), backend=backend)
                 encryptor = cipher.encryptor()
                 ciphertext_bytes = encryptor.update(padded_plaintext_bytes) + encryptor.finalize()
                 ciphertext = base64.b64encode(ciphertext_bytes).decode("utf-8")
-                return ciphertext, iv
+                return ciphertext, cipher_iv
             elif mode == "GCM":
+                cipher_iv = str(uuid.uuid4()).replace("-", "")[:12]
+                iv_bytes = cipher_iv.encode("utf-8")
                 cipher = Cipher(algorithm=algorithms.AES(key_bytes), mode=modes.GCM(iv_bytes), backend=backend)
                 encryptor = cipher.encryptor()
                 ciphertext_bytes = encryptor.update(padded_plaintext_bytes) + encryptor.finalize() + encryptor.tag
                 ciphertext = base64.b64encode(ciphertext_bytes).decode("utf-8")
-                return ciphertext, iv
+                return ciphertext, cipher_iv
             else:
                 return None, None
         except InvalidTag:
@@ -628,7 +600,6 @@ class BarkChannel(CustomChannel):
             mode=self.get_config_item(config_key="cipher_mode"),
             padding=self.get_config_item(config_key="cipher_padding"),
             key=self.get_config_item(config_key="cipher_key"),
-            iv=self.get_config_item(config_key="cipher_iv")
         )
 
     def __build_req_data(self, title: str, text: str, ext_info: dict = {}) -> dict:
@@ -640,10 +611,10 @@ class BarkChannel(CustomChannel):
             return json
         else:
             try:
-                ciphertext, iv = self.__cipher_json(json)
+                ciphertext, cipher_iv = self.__cipher_json(json)
                 return {
                     "ciphertext": ciphertext,
-                    "iv": iv
+                    "iv": cipher_iv,
                 }
             except Exception as e:
                 logger.error(f"加密异常，已降级为非加密方式: {str(e)}", exc_info=True)
