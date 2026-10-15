@@ -601,10 +601,15 @@ class LinkdingFavorites(Favorites):
         """
         if not media_info or not media_info.title:
             return None
-        if media_info.year:
-            return f"{media_info.title} ({media_info.year}) — The Movie Database (TMDB)"
+        if media_info.media_source == MediaSource.TMDB:
+            if media_info.year:
+                return f"{media_info.title} ({media_info.year}) — The Movie Database (TMDB)"
+            else:
+                return f"{media_info.title} — The Movie Database (TMDB)"
+        elif media_info.media_source == MediaSource.Douban:
+            return f"{media_info.title} (豆瓣)"
         else:
-            return f"{media_info.title} — The Movie Database (TMDB)"
+            return None
 
     def __build_bookmark_markdown_notes_by_media_info(self, media_info: MediaInfo,
                                                       auto_tags: bool) -> Optional[str]:
