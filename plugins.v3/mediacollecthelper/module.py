@@ -3,7 +3,7 @@ from enum import Enum
 from threading import RLock
 from typing import Optional
 
-from app.schemas.types import MediaType
+from app.schemas.types import MediaType, MediaSource
 from cachetools import Cache
 from pydantic import BaseModel
 
@@ -16,9 +16,8 @@ class MediaDigest(BaseModel):
     title: Optional[str] = None
     year: Optional[str] = None
     type: Optional[MediaType] = None
-    tmdb_id: Optional[str] = None
-    imdb_id: Optional[str] = None
-    tvdb_id: Optional[str] = None
+    media_source: Optional[MediaSource] = None
+    media_id: Optional[str] = None
 
 
 class MediaDataSource(Enum):

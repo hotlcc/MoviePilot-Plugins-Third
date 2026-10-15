@@ -12,6 +12,7 @@ from app.db.oper.mediaserver import MediaServerOper
 from app.db.oper.subscribe import SubscribeOper
 from app.db.oper.subscribehistory import SubscribeHistoryOper
 from app.foundation.reflection import ModuleHelper
+from app.schemas.types import MediaSource
 from app.schemas.types import MediaType, EventType, MessageType
 from app.sdk.config import settings
 from app.sdk.events import eventmanager, Event
@@ -874,19 +875,21 @@ class MediaCollectHelper(_PluginBase):
         )
         if not msi_list:
             return []
-        return [self.__convert_media_server_item_to_media_digest(msi=msi) for msi in msi_list if msi and msi.item_type and msi.item_type in collect_media_types_as_enum_value]
+        result = [self.__convert_media_server_item_to_media_digest(msi=msi) for msi in msi_list if msi and msi.item_type and msi.item_type in collect_media_types_as_enum_value]
+        return [item for item in result if item]
 
+    # noinspection PyTypeChecker
     @classmethod
     def __convert_media_server_item_to_media_digest(cls, msi: MediaServerItem) -> Optional[MediaDigest]:
         """
         把MediaServerItem转换为MediaDigest
         """
-        if not msi or not msi.tmdbid:
+        if not msi or not msi.media_source or not msi.media_id:
             return None
-        tmdb_id = str(msi.tmdbid) if msi.tmdbid else None
-        imdb_id = str(msi.imdbid) if msi.imdbid else None
-        tvdb_id = str(msi.tvdbid) if msi.tvdbid else None
-        return MediaDigest(title=msi.title, year=msi.year, type=MediaType(msi.item_type), tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
+        media_source: MediaSource = MediaSource._value2member_map_.get(msi.media_source)
+        if not media_source:
+            return None
+        return MediaDigest(title=msi.title, year=msi.year, type=MediaType(msi.item_type), media_source=media_source, media_id=media_id)
 
     async def __get_media_data_from_subscribe(self) -> List[MediaDigest]:
         """
@@ -901,19 +904,21 @@ class MediaCollectHelper(_PluginBase):
         sub_list: List[Subscribe] = await self.__subscribe_oper.async_list()
         if not sub_list:
             return []
-        return [self.__convert_subscribe_to_media_digest(sub=sub) for sub in sub_list if sub and sub.type and sub.type in collect_media_types_as_enum_value]
+        result = [self.__convert_subscribe_to_media_digest(sub=sub) for sub in sub_list if sub and sub.type and sub.type in collect_media_types_as_enum_value]
+        return [item for item in result if item]
 
+    # noinspection PyTypeChecker
     @classmethod
     def __convert_subscribe_to_media_digest(cls, sub: Subscribe) -> Optional[MediaDigest]:
         """
         把Subscribe转换为MediaDigest
         """
-        if not sub or not sub.tmdbid:
+        if not sub or not sub.media_source or not sub.media_id:
             return None
-        tmdb_id = str(sub.tmdbid) if sub.tmdbid else None
-        imdb_id = str(sub.imdbid) if sub.imdbid else None
-        tvdb_id = str(sub.tvdbid) if sub.tvdbid else None
-        return MediaDigest(title=sub.name, year=sub.year, type=MediaType(sub.type), tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
+        media_source: MediaSource = MediaSource._value2member_map_.get(sub.media_source)
+        if not media_source:
+            return None
+        return MediaDigest(title=sub.name, year=sub.year, type=MediaType(sub.type), media_source=media_source, media_id=media_id)
 
     # noinspection PyProtectedMember,PyTypeChecker
     async def __get_media_data_from_subscribe_history(self) -> List[MediaDigest]:
@@ -931,19 +936,21 @@ class MediaCollectHelper(_PluginBase):
         )
         if not sub_his_list:
             return []
-        return [self.__convert_subscribe_history_to_media_digest(sub_his=sub_his) for sub_his in sub_his_list if sub_his and sub_his.type and sub_his.type in collect_media_types_as_enum_value]
+        result = [self.__convert_subscribe_history_to_media_digest(sub_his=sub_his) for sub_his in sub_his_list if sub_his and sub_his.type and sub_his.type in collect_media_types_as_enum_value]
+        return [item for item in result if item]
 
+    # noinspection PyTypeChecker
     @classmethod
     def __convert_subscribe_history_to_media_digest(cls, sub_his: SubscribeHistory) -> Optional[MediaDigest]:
         """
         把SubscribeHistory转换为MediaDigest
         """
-        if not sub_his or not sub_his.tmdbid:
+        if not sub_his or not sub_his.media_source or not sub_his.media_id:
             return None
-        tmdb_id = str(sub_his.tmdbid) if sub_his.tmdbid else None
-        imdb_id = str(sub_his.imdbid) if sub_his.imdbid else None
-        tvdb_id = str(sub_his.tvdbid) if sub_his.tvdbid else None
-        return MediaDigest(title=sub_his.name, year=sub_his.year, type=MediaType(sub_his.type), tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
+        media_source: MediaSource = MediaSource._value2member_map_.get(sub_his.media_source)
+        if not media_source:
+            return None
+        return MediaDigest(title=sub_his.name, year=sub_his.year, type=MediaType(sub_his.type), media_source=media_source, media_id=media_id)
 
     async def __get_media_data(self) -> List[MediaDigest]:
         """
