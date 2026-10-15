@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta
 from threading import RLock, Event as ThreadEvent
-from typing import Any, List, Dict, Tuple, Type, Optional
+from typing import Any, List, Dict, Tuple, Type, Optional, OrderedDict
 
 import pytz
+from app.foundation.reflection import ModuleHelper
+from app.sdk.config import settings
 from app.sdk.logging import logger
+# noinspection PyProtectedMember
 from app.sdk.plugin.base import _PluginBase
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -11,7 +14,7 @@ from apscheduler.triggers.cron import CronTrigger
 from .source import BaseSource
 
 
-# noinspection SpellCheckingInspection
+# noinspection SpellCheckingInspection,DuplicatedCode
 class NavidromeRadioSource(_PluginBase):
     # 插件名称
     plugin_name = "Navidrome广播源"
@@ -20,7 +23,7 @@ class NavidromeRadioSource(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "0.0.1"
+    plugin_version = "3.0.1"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -32,39 +35,39 @@ class NavidromeRadioSource(_PluginBase):
     # 可使用的用户级别
     auth_level = 1
 
-    # 注册组件
-    # 注册组件对象
-    __comp_objs: Dict[str, BaseSource] = {}
-
-    # 私有属性
-    # 调度器
-    __scheduler: Optional[BackgroundScheduler] = None
-    # 任务锁
-    __task_lock: RLock = RLock()
-    # 退出事件
-    __exit_event: ThreadEvent = ThreadEvent()
-
-    # 配置相关
+    # 类公共属性
     # 插件缺省配置
     __config_default: Dict[str, Any] = {
         "cron": "0 3 * * *"
     }
+
+    # 对象私有属性
     # 插件用户配置
-    __config: Dict[str, Any] = {}
+    __config: Optional[Dict[str, Any]] = None
+    # 注册组件对象
+    __comp_objs: Optional[OrderedDict[str, BaseSource]] = None
+    # 调度器
+    __scheduler: Optional[BackgroundScheduler] = None
+    # 任务锁
+    __task_lock: Optional[RLock] = None
+    # 退出事件
+    __exit_event: Optional[ThreadEvent] = None
 
     def init_plugin(self, config: dict = None):
         """
         生效配置信息
         :param config: 配置信息字典
         """
-        # 加载插件配置
-        self.__config = config
+        # 对象私有属性
+        self.__config = config or {}
+        self.__comp_objs = OrderedDict[str, BaseSource]()
+        self.__init_scheduler()
+        self.__task_lock = RLock()
+        self.__exit_event = ThreadEvent()
         # 注册组件
         self.__register_comp()
         # 修正配置
-        config = self.__fix_config(config=config)
-        # 重新加载插件配置
-        self.__config = config
+        self.__config = self.__fix_config(config=config)
         # 处理运行一次
         self.__run_once()
 
@@ -314,7 +317,7 @@ class NavidromeRadioSource(_PluginBase):
         """
         # 加载所有组件类
         comp_types: List[Type[BaseSource]] = ModuleHelper.load(
-            package_path="app.plugins.navidromeradiosource.sources",
+            package_path="app.plugins.navidromeradiosource.source",
             filter_func=lambda _, obj: self.__check_comp_type(comp_type=obj)
         )
         # 数量
@@ -337,25 +340,22 @@ class NavidromeRadioSource(_PluginBase):
                 comp_obj = self.__comp_objs.get(comp_key)
                 if comp_obj:
                     continue
-                comp_obj = comp_type(plugin=self)
-                comp_obj.init_comp()
+                comp_obj = comp_type()
                 self.__comp_objs[comp_key] = comp_obj
                 logger.info(f"注册广播源组件 - {comp_name} - 成功")
             except Exception as e:
                 logger.error(f"注册广播源组件 - {comp_name} - 异常: {str(e)}", exc_info=True)
 
-    def __start_scheduler(self, timezone=None):
+    def __init_scheduler(self, timezone=None):
         """
-        启动调度器
+        初始化调度器
         :param timezone: 时区
         """
         try:
-            scheduler: BackgroundScheduler = self.__scheduler
-            if not scheduler:
-                if not timezone:
-                    timezone = settings.TZ
-                self.__scheduler = scheduler = BackgroundScheduler(timezone=timezone)
-                logger.debug(f"插件服务调度器初始化完成: timezone = {str(timezone)}")
+            if not timezone:
+                timezone = settings.TZ
+            self.__scheduler = scheduler = BackgroundScheduler(timezone=timezone)
+            logger.debug(f"插件服务调度器初始化完成: timezone = {str(timezone)}")
             if not scheduler.running:
                 scheduler.start()
                 logger.debug(f"插件服务调度器启动成功")
@@ -374,7 +374,6 @@ class NavidromeRadioSource(_PluginBase):
                 scheduler.remove_all_jobs()
                 if scheduler.running:
                     scheduler.shutdown()
-                self.__scheduler = scheduler = None
                 logger.info('插件服务调度器停止成功')
             else:
                 logger.info('插件未启用服务调度器，无须停止')
@@ -555,8 +554,6 @@ class NavidromeRadioSource(_PluginBase):
         """
         异步Try运行
         """
-        self.__start_scheduler()
-
         def __do_task():
             self.__try_run(media_data=media_data)
 
