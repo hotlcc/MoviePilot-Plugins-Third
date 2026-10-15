@@ -4,13 +4,17 @@ from typing import Any, List, Dict, Tuple, Type, Optional, OrderedDict
 
 import pytz
 from app.foundation.reflection import ModuleHelper
+from app.schemas.system import MediaServerConf
+from app.schemas.types import MediaServerType
 from app.sdk.config import settings
 from app.sdk.logging import logger
 # noinspection PyProtectedMember
 from app.sdk.plugin.base import _PluginBase
+from app.sdk.services import MediaServerHelper
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from .model import Radio
 from .source import BaseSource
 
 
@@ -52,6 +56,8 @@ class NavidromeRadioSource(_PluginBase):
     __task_lock: Optional[RLock] = None
     # 退出事件
     __exit_event: Optional[ThreadEvent] = None
+    # 媒体服务器
+    __media_server_helper: Optional[MediaServerHelper] = None
 
     def init_plugin(self, config: dict = None):
         """
@@ -64,6 +70,7 @@ class NavidromeRadioSource(_PluginBase):
         self.__init_scheduler()
         self.__task_lock = RLock()
         self.__exit_event = ThreadEvent()
+        self.__media_server_helper = MediaServerHelper()
         # 注册组件
         self.__register_comp()
         # 修正配置
@@ -109,9 +116,11 @@ class NavidromeRadioSource(_PluginBase):
         拼装插件配置页面，需要返回两块数据：1、页面配置；2、数据结构
         插件配置页面使用Vuetify组件拼装，参考：https://vuetifyjs.com/
         """
+        navidrome_configs = self.__get_navidrome_configs() or []
         # 建议的配置
         config_suggest = {
-            "enable_sources": ["cnr", "xmly"],
+            "navidrome_server": navidrome_configs[0].name if navidrome_configs else None,
+            "enable_sources": list(self.__comp_objs.keys()),
         }
         # 合并默认配置
         config_suggest.update(self.__config_default)
@@ -143,20 +152,6 @@ class NavidromeRadioSource(_PluginBase):
                     'content': [{
                         'component': 'VSwitch',
                         'props': {
-                            'model': 'enable_notify',
-                            'label': '发送通知',
-                            'hint': '执行插件任务后是否发送通知'
-                        }
-                    }]
-                }, {
-                    'component': 'VCol',
-                    'props': {
-                        'cols': 12,
-                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
-                    },
-                    'content': [{
-                        'component': 'VSwitch',
-                        'props': {
                             'model': 'run_once',
                             'label': '立即运行一次',
                             'hint': '保存插件配置后是否立即触发一次插件任务运行'
@@ -175,6 +170,56 @@ class NavidromeRadioSource(_PluginBase):
                             'label': '定时周期',
                             'placeholder': self.__config_default.get("cron"),
                             'hint': f'设置插件任务执行周期。支持5位cron表达式，缺省时为：{self.__config_default.get("cron")}。'
+                        }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VSelect',
+                        'props': {
+                            'model': 'navidrome_server',
+                            'label': 'Navidrome服务器',
+                            'multiple': False,
+                            'chips': True,
+                            'items': [{
+                                'title': config.name,
+                                'value': config.name,
+                            } for config in navidrome_configs if config],
+                            'hint': '选择Navidrome服务器。'
+                        }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VTextField',
+                        'props': {
+                            'model': 'navidrome_username',
+                            'label': 'Navidrome用户',
+                            'placeholder': "",
+                            'hint': "Navidrome用户。缺省时取Navidrome服务器配置的用户，必须确保是管理员用户。"
+                        }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VTextField',
+                        'props': {
+                            'model': 'navidrome_password',
+                            'label': 'Navidrome密码',
+                            'placeholder': "",
+                            'hint': "Navidrome密码。"
                         }
                     }]
                 }, {
@@ -241,14 +286,14 @@ class NavidromeRadioSource(_PluginBase):
         try:
             logger.info('尝试停止插件服务...')
             self.__exit_event.set()
-            self.__stop_comp_service()
             self.__stop_scheduler()
             self.__gc()
             logger.info('插件服务停止完成')
         except Exception as e:
             logger.error(f"插件服务停止异常: {str(e)}", exc_info=True)
 
-    def __fix_config(self, config: dict) -> Optional[dict]:
+    @classmethod
+    def __fix_config(cls, config: dict) -> Optional[dict]:
         """
         修正配置
         """
@@ -281,7 +326,8 @@ class NavidromeRadioSource(_PluginBase):
             config_value = config_default.get(config_key)
         return config_value
 
-    def __check_comp_type(self, comp_type: type) -> bool:
+    @classmethod
+    def __check_comp_type(cls, comp_type: type) -> bool:
         """
         检查组件类
         """
@@ -289,7 +335,8 @@ class NavidromeRadioSource(_PluginBase):
             return False
         return issubclass(comp_type, BaseSource) and comp_type is not BaseSource
 
-    def __extract_comp_key(self, comp_type: type) -> Optional[str]:
+    @classmethod
+    def __extract_comp_key(cls, comp_type: type) -> Optional[str]:
         """
         提取组件key
         """
@@ -397,142 +444,7 @@ class NavidromeRadioSource(_PluginBase):
         except Exception as e:
             logger.error(f"回收内存异常: {str(e)}", exc_info=True)
 
-    def __build_comp_form_element(self) -> dict:
-        """
-        构建组件表单元素
-        """
-        return {
-            'component': 'VRow',
-            'content': [{
-                'component': 'VCol',
-                'props': {
-                    'cols': 12
-                },
-                'content': [
-                    self.__build_comp_form_tabs_element(),
-                    self.__build_comp_form_window_element(),
-                ]
-            }]
-        }
-
-    def __build_comp_form_tab_value(self, key: str) -> str:
-        """
-        构造组件表单tab的value
-        :param key: 组件的key
-        """
-        return f'_tab_{key}'
-
-    def __build_comp_form_tabs_element(self) -> dict:
-        """
-        构建组件表单tabs元素
-        """
-        return {
-            'component': 'VTabs',
-            'props': {
-                'model': '_tabs',
-                'height': 72,
-                'style': {
-                    'margin-top-': '20px',
-                    'margin-bottom-': '20px',
-                }
-            },
-            'content': [{
-                'component': 'VTab',
-                'props': {
-                    'style': {
-                        'text-transform': 'none',
-                    },
-                    'value': self.__build_comp_form_tab_value(key=key)
-                },
-                'text': obj.comp_name
-            } for key, obj in self.__comp_objs.items() if key and obj]
-        }
-
-    def __get_comp_form_elements(self, comp_obj: Favorites) -> List[dict]:
-        """
-        获取组件的表单元素
-        """
-        if not comp_obj:
-            return None
-        form = comp_obj.get_form()
-        if not form:
-            return None
-        elements, _ = form
-        comp_key = comp_obj.comp_key
-        self.__wrapper_comp_form_elements(comp_key=comp_key, comp_elements=elements)
-        return elements
-
-    def __wrapper_comp_form_model(self, comp_key: str, model: str) -> str:
-        """
-        包装组件表单model
-        """
-        if not comp_key or not model:
-            return None
-        return f"{comp_key}.{model}"
-
-    def __wrapper_comp_form_elements(self, comp_key: str, comp_elements: List[dict]):
-        """
-        包装组件的表单元素
-        """
-        if not comp_key or not comp_elements:
-            return
-        for comp_element in comp_elements:
-            if not comp_element:
-                continue
-            # 处理自身
-            props = comp_element.get("props")
-            if props:
-                model = props.get("model")
-                if model:
-                    props["model"] = self.__wrapper_comp_form_model(comp_key=comp_key, model=model)
-            # 递归处理下级
-            content = comp_element.get("content")
-            if content:
-                self.__wrapper_comp_form_elements(comp_key=comp_key, comp_elements=content)
-
-    def __get_comp_form_data(self, comp_obj: Favorites) -> Dict[str, Any]:
-        """
-        获取组件的表单数据
-        """
-        if not comp_obj:
-            return None
-        form = comp_obj.get_form()
-        if not form:
-            return None
-        _, data = form
-        if not data:
-            return {}
-        result = {}
-        comp_key = comp_obj.comp_key
-        for key, value in data.items():
-            if not key or not value:
-                continue
-            key = self.__wrapper_comp_form_model(comp_key=comp_key, model=key)
-            result[key] = value
-        return result
-
-    def __build_comp_form_window_element(self) -> dict:
-        """
-        构建组件表单window元素
-        """
-        return {
-            'component': 'VWindow',
-            'props': {
-                'model': '_tabs',
-            },
-            'content': [{
-                'component': 'VWindowItem',
-                'props': {
-                    'style': {
-                        'margin-top': '20px',
-                    },
-                    'value': self.__build_comp_form_tab_value(key=key)
-                },
-                'content': self.__get_comp_form_elements(comp_obj=obj)
-            } for key, obj in self.__comp_objs.items() if key and obj]
-        }
-
-    def __try_run(self, media_data: List[MediaDigest] = None):
+    def __try_run(self):
         """
         尝试运行插件任务
         """
@@ -594,7 +506,7 @@ class NavidromeRadioSource(_PluginBase):
                           run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
                           name='异步阻塞运行')
 
-    def __run(self, media_data: List[MediaDigest] = None):
+    def __run(self):
         """
         运行任务
         """
@@ -631,53 +543,32 @@ class NavidromeRadioSource(_PluginBase):
                     run_results.append((False, comp_key, comp_obj, None))
         except Exception as e:
             logger.error(f"运行插件任务异常: {str(e)}", exc_info=True)
-        finally:
-            self.__send_notify(run_results=run_results)
 
-    def __send_notify(self, run_results: List[Tuple[bool, str, Favorites, List[MediaDigest]]]):
-        """
-        发送通知
-        :param run_results: List[Tuple[是否成功, comp_key, comp_obj, result]]
-        """
-        if not run_results or not self.__get_config_item('enable_notify'):
-            return
-        text = self.__build_notify_message(run_results=run_results)
-        if not text:
-            return
-        self.post_message(title=f'{self.plugin_name}任务执行结果', text=text, mtype=NotificationType.Plugin)
+    def __get_navidrome_configs(self) -> Optional[List[MediaServerConf]]:
+        config_map = self.__media_server_helper.get_configs(include_disabled=True) or {}
+        if not config_map:
+            return None
+        type_str = MediaServerType.Navidrome.name.lower()
+        configs = list(config_map.values()) or []
+        return [config for config in configs if config and config.type == type_str]
 
-    @staticmethod
-    def __build_notify_message(run_results: List[Tuple[bool, str, Favorites, List[MediaDigest]]]) -> str:
+    def __get_navidrome_config(self, name: str) -> Optional[MediaServerConf]:
+        return self.__media_server_helper.get_config(name=name)
+
+    async def get_radios(self) -> Optional[List[Radio]]:
         """
-        构建通知消息内容
+        获取广播信息
         """
-        text = ''
-        if not run_results:
-            return text
-        for run_result in run_results:
-            if not run_result:
+        enable_sources = self.__get_config_item(config_key="enable_sources") or []
+        if not enable_sources:
+            logger.warn("请至少选择一个广播源")
+            return None
+        result: List[Radio] = []
+        for enable_source in enable_sources:
+            if not enable_source:
                 continue
-            success, comp_key, comp_obj, result = run_result
-            if not success:
-                text += f'{comp_obj.comp_name}: 失败\n'
-            else:
-                if not comp_key or not comp_obj or not result:
-                    continue
-                text += f'{comp_obj.comp_name}: 收藏了{len(result)}条\n'
-        return text
-
-    def __run_single(self, comp_obj: Favorites, media_data: List[MediaDigest]) -> List[MediaDigest]:
-        """
-        针对单个收藏夹运行
-        :return: 本次收藏的媒体集合
-        """
-        if not comp_obj or not media_data:
-            return []
-        try:
-            if self.__exit_event.is_set():
-                logger.warn(f"运行任务中止: 插件正在退出")
-                return []
-            return comp_obj.collect(media_data=media_data)
-        except Exception as e:
-            logger.error(f"运行单个收藏夹[{comp_obj.comp_name}]任务异常: {str(e)}", exc_info=True)
-            raise e
+            comp_obj: BaseSource = self.__comp_objs.get(enable_source)
+            if not comp_obj:
+                continue
+            result.extend(await comp_obj.get_radios())
+        return result
