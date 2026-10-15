@@ -1,26 +1,33 @@
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from cachetools import TTLCache
+# noinspection DuplicatedCode
+import asyncio
 from datetime import datetime, timedelta
-import pytz
 from threading import RLock, Event as ThreadEvent
 from typing import Any, List, Dict, Tuple, OrderedDict, Type, Optional, Union
 
-from app.core.config import settings
-from app.core.context import MediaInfo
-from app.core.event import eventmanager, Event
+import pytz
 from app.db.models.mediaserver import MediaServerItem
 from app.db.models.subscribe import Subscribe
 from app.db.models.subscribehistory import SubscribeHistory
-from app.db.subscribe_oper import SubscribeOper
-from app.helper.module import ModuleHelper
-from app.log import logger
-from app.plugins import _PluginBase
-from app.plugins.mediacollecthelper.favorites import Favorites
-from app.plugins.mediacollecthelper.module import MediaDataSource, MediaDigest, AtomicCache
-from app.schemas.types import MediaType, EventType, NotificationType
+from app.db.oper.mediaserver import MediaServerOper
+from app.db.oper.subscribe import SubscribeOper
+from app.db.oper.subscribehistory import SubscribeHistoryOper
+from app.foundation.reflection import ModuleHelper
+from app.schemas.types import MediaType, EventType, MessageType
+from app.sdk.config import settings
+from app.sdk.events import eventmanager, Event
+from app.sdk.logging import logger
+from app.sdk.media import MediaInfo
+# noinspection PyProtectedMember
+from app.sdk.plugin.base import _PluginBase
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from cachetools import TTLCache
+
+from .favorites import Favorites
+from .module import MediaDataSource, MediaDigest, AtomicCache
 
 
+# noinspection SpellCheckingInspection,DuplicatedCode
 class MediaCollectHelper(_PluginBase):
     # 插件名称
     plugin_name = "影视收藏助手"
@@ -41,43 +48,51 @@ class MediaCollectHelper(_PluginBase):
     # 可使用的用户级别
     auth_level = 1
 
-    # 注册组件
-    # 注册组件对象
-    __comp_objs: OrderedDict[str, Favorites] = OrderedDict()
-
-    # 私有属性
-    # 调度器
-    __scheduler: Optional[BackgroundScheduler] = None
-    # 任务锁
-    __task_lock: RLock = RLock()
-    # 退出事件
-    __exit_event: ThreadEvent = ThreadEvent()
-    # 订阅数据操作
-    __subscribe_oper: SubscribeOper = SubscribeOper()
-    # 原子缓存操作，用于处理短期内事件媒体相同的清空去重
-    __atomic_cache: AtomicCache = AtomicCache(cache=TTLCache(maxsize=1000, ttl=60 * 5))
-
-    # 配置相关
+    # 类公共属性
     # 插件缺省配置
     __config_default: Dict[str, Any] = {
         "cron": "0 3 * * *"
     }
+
+    # 对象私有属性
     # 插件用户配置
-    __config: Dict[str, Any] = {}
+    __config: Optional[Dict[str, Any]] = None
+    # 注册组件对象
+    __comp_objs: Optional[OrderedDict[str, Favorites]] = None
+    # 调度器
+    __scheduler: Optional[BackgroundScheduler] = None
+    # 任务锁
+    __task_lock: Optional[RLock] = None
+    # 退出事件
+    __exit_event: Optional[ThreadEvent] = None
+    # 媒体服务器操作
+    __media_server_oper: Optional[MediaServerOper] = None
+    # 订阅数据操作
+    __subscribe_oper: Optional[SubscribeOper] = None
+    # 订阅历史数据操作
+    __subscribe_history_oper: Optional[SubscribeHistoryOper] = None
+    # 原子缓存操作，用于处理短期内事件媒体相同的清空去重
+    __atomic_cache: Optional[AtomicCache] = None
 
     def init_plugin(self, config: dict = None):
         """
         生效配置信息
         :param config: 配置信息字典
         """
-        # 加载插件配置
-        self.__config = config
+        # 对象私有属性
+        self.__config = config or {}
+        self.__comp_objs = OrderedDict[str, Favorites]()
+        self.__init_scheduler()
+        self.__task_lock = RLock()
+        self.__exit_event = ThreadEvent()
+        self.__media_server_oper = MediaServerOper()
+        self.__subscribe_oper = SubscribeOper()
+        self.__subscribe_history_oper = SubscribeHistoryOper()
+        self.__atomic_cache = AtomicCache(cache=TTLCache(maxsize=1000, ttl=60 * 5))
         # 注册收藏夹组件
         self.__register_comp()
         # 修正配置
-        config = self.__fix_config(config=config)
-        # 重新加载插件配置
-        self.__config = config
+        self.__config = self.__fix_config(config=config)
         # 处理运行一次
         self.__run_once()
 
@@ -238,7 +253,7 @@ class MediaCollectHelper(_PluginBase):
                         'items': [{
                             'title': mt.value,
                             'value': mt.name,
-                        } for mt in MediaType if mt],
+                        } for mt in MediaType if mt and mt in [MediaType.TV, MediaType.MOVIE]],
                         'hint': '选择要收藏的影视类型。'
                     }
                 }]
@@ -301,7 +316,7 @@ class MediaCollectHelper(_PluginBase):
         except Exception as e:
             logger.error(f"插件服务停止异常: {str(e)}", exc_info=True)
 
-    def __fix_config(self, config: dict) -> dict:
+    def __fix_config(self, config: dict) -> Optional[dict]:
         """
         修正配置
         """
@@ -390,6 +405,7 @@ class MediaCollectHelper(_PluginBase):
         self.__config = config
         return result
 
+    # noinspection PyTypeChecker
     def __get_collect_media_types_as_enum(self) -> List[MediaType]:
         """
         获取收藏的媒体类型枚举
@@ -420,7 +436,8 @@ class MediaCollectHelper(_PluginBase):
             return False
         return issubclass(comp_type, Favorites) and comp_type is not Favorites
 
-    def __extract_comp_key(self, comp_type: type) -> str:
+    @classmethod
+    def __extract_comp_key(cls, comp_type: type) -> Optional[str]:
         """
         提取组件key
         """
@@ -478,18 +495,16 @@ class MediaCollectHelper(_PluginBase):
             except Exception as e:
                 logger.error(f"注册收藏夹组件 - {comp_name} - 异常: {str(e)}", exc_info=True)
 
-    def __start_scheduler(self, timezone=None):
+    def __init_scheduler(self, timezone=None):
         """
-        启动调度器
+        初始化调度器
         :param timezone: 时区
         """
         try:
-            scheduler: BackgroundScheduler = self.__scheduler
-            if not scheduler:
-                if not timezone:
-                    timezone = settings.TZ
-                self.__scheduler = scheduler = BackgroundScheduler(timezone=timezone)
-                logger.debug(f"插件服务调度器初始化完成: timezone = {str(timezone)}")
+            if not timezone:
+                timezone = settings.TZ
+            self.__scheduler = scheduler = BackgroundScheduler(timezone=timezone)
+            logger.debug(f"插件服务调度器初始化完成: timezone = {str(timezone)}")
             if not scheduler.running:
                 scheduler.start()
                 logger.debug(f"插件服务调度器启动成功")
@@ -508,7 +523,6 @@ class MediaCollectHelper(_PluginBase):
                 scheduler.remove_all_jobs()
                 if scheduler.running:
                     scheduler.shutdown()
-                self.__scheduler = scheduler = None
                 logger.info('插件服务调度器停止成功')
             else:
                 logger.info('插件未启用服务调度器，无须停止')
@@ -607,7 +621,7 @@ class MediaCollectHelper(_PluginBase):
             } for key, obj in self.__comp_objs.items() if key and obj]
         }
 
-    def __get_comp_form_elements(self, comp_obj: Favorites) -> List[dict]:
+    def __get_comp_form_elements(self, comp_obj: Favorites) -> Optional[List[dict]]:
         """
         获取组件的表单元素
         """
@@ -621,7 +635,8 @@ class MediaCollectHelper(_PluginBase):
         self.__wrapper_comp_form_elements(comp_key=comp_key, comp_elements=elements)
         return elements
 
-    def __wrapper_comp_form_model(self, comp_key: str, model: str) -> str:
+    @classmethod
+    def __wrapper_comp_form_model(cls, comp_key: str, model: str) -> Optional[str]:
         """
         包装组件表单model
         """
@@ -649,7 +664,7 @@ class MediaCollectHelper(_PluginBase):
             if content:
                 self.__wrapper_comp_form_elements(comp_key=comp_key, comp_elements=content)
 
-    def __get_comp_form_data(self, comp_obj: Favorites) -> Dict[str, Any]:
+    def __get_comp_form_data(self, comp_obj: Favorites) -> Optional[Dict[str, Any]]:
         """
         获取组件的表单数据
         """
@@ -713,7 +728,6 @@ class MediaCollectHelper(_PluginBase):
         """
         异步Try运行
         """
-        self.__start_scheduler()
         def __do_task():
             self.__try_run(media_data=media_data)
         scheduler: BackgroundScheduler = self.__scheduler
@@ -742,7 +756,6 @@ class MediaCollectHelper(_PluginBase):
         """
         异步阻塞运行
         """
-        self.__start_scheduler()
         def __do_task():
             self.__block_run(media_data=media_data)
         scheduler: BackgroundScheduler = self.__scheduler
@@ -755,7 +768,7 @@ class MediaCollectHelper(_PluginBase):
         """
         运行任务
         """
-        run_results: List[Tuple[bool, str, Favorites, List[MediaDigest]]] = []
+        run_results: List[Tuple[bool, str, Favorites, Optional[List[MediaDigest]]]] = []
         try:
             if self.__exit_event.is_set():
                 logger.warn(f"运行任务中止: 插件正在退出")
@@ -768,7 +781,7 @@ class MediaCollectHelper(_PluginBase):
                 logger.warn(f"运行任务中止: 插件正在退出")
                 return
             if not media_data:
-                media_data = self.__get_media_data()
+                media_data = asyncio.run(self.__get_media_data())
             if not media_data:
                 logger.warn("没有找到符合条件的影视信息，请检查配置是否有误")
                 return
@@ -801,10 +814,10 @@ class MediaCollectHelper(_PluginBase):
         text = self.__build_notify_message(run_results=run_results)
         if not text:
             return
-        self.post_message(title=f'{self.plugin_name}任务执行结果', text=text, mtype=NotificationType.Plugin)
+        self.post_message(title=f'{self.plugin_name}任务执行结果', text=text, mtype=MessageType.Plugin)
 
-    @staticmethod
-    def __build_notify_message(run_results: List[Tuple[bool, str, Favorites, List[MediaDigest]]]) -> str:
+    @classmethod
+    def __build_notify_message(cls, run_results: List[Tuple[bool, str, Favorites, List[MediaDigest]]]) -> str:
         """
         构建通知消息内容
         """
@@ -839,13 +852,14 @@ class MediaCollectHelper(_PluginBase):
             logger.error(f"运行单个收藏夹[{comp_obj.comp_name}]任务异常: {str(e)}", exc_info=True)
             raise e
 
-    def __get_media_data_from_media_library(self) -> List[MediaDigest]:
+    async def __get_media_data_from_media_library(self) -> List[MediaDigest]:
         """
         从MP媒体库中获取媒体数据
         """
-        return self.__get_media_data_from_media_library_db()
+        return await self.__get_media_data_from_media_library_db()
 
-    def __get_media_data_from_media_library_db(self) -> List[MediaDigest]:
+    # noinspection PyProtectedMember,PyTypeChecker
+    async def __get_media_data_from_media_library_db(self) -> List[MediaDigest]:
         """
         从MP媒体库数据库中获取媒体数据
         """
@@ -855,13 +869,15 @@ class MediaCollectHelper(_PluginBase):
         collect_media_types_as_enum_value = self.__get_collect_media_types_as_enum_value()
         if not collect_media_types_as_enum_value:
             return []
-        msi_list: List[MediaServerItem] = MediaServerItem.list()
+        msi_list: List[MediaServerItem] = await self.__media_server_oper._execute_async_query(
+            lambda db: MediaServerItem.list(db=db)
+        )
         if not msi_list:
             return []
         return [self.__convert_media_server_item_to_media_digest(msi=msi) for msi in msi_list if msi and msi.item_type and msi.item_type in collect_media_types_as_enum_value]
 
     @classmethod
-    def __convert_media_server_item_to_media_digest(cls, msi: MediaServerItem) -> MediaDigest:
+    def __convert_media_server_item_to_media_digest(cls, msi: MediaServerItem) -> Optional[MediaDigest]:
         """
         把MediaServerItem转换为MediaDigest
         """
@@ -872,7 +888,7 @@ class MediaCollectHelper(_PluginBase):
         tvdb_id = str(msi.tvdbid) if msi.tvdbid else None
         return MediaDigest(title=msi.title, year=msi.year, type=MediaType(msi.item_type), tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
 
-    def __get_media_data_from_subscribe(self) -> List[MediaDigest]:
+    async def __get_media_data_from_subscribe(self) -> List[MediaDigest]:
         """
         从MP订阅中获取媒体数据
         """
@@ -882,13 +898,13 @@ class MediaCollectHelper(_PluginBase):
         collect_media_types_as_enum_value = self.__get_collect_media_types_as_enum_value()
         if not collect_media_types_as_enum_value:
             return []
-        sub_list: List[Subscribe] = self.__subscribe_oper.list()
+        sub_list: List[Subscribe] = await self.__subscribe_oper.async_list()
         if not sub_list:
             return []
         return [self.__convert_subscribe_to_media_digest(sub=sub) for sub in sub_list if sub and sub.type and sub.type in collect_media_types_as_enum_value]
 
     @classmethod
-    def __convert_subscribe_to_media_digest(cls, sub: Subscribe) -> MediaDigest:
+    def __convert_subscribe_to_media_digest(cls, sub: Subscribe) -> Optional[MediaDigest]:
         """
         把Subscribe转换为MediaDigest
         """
@@ -899,7 +915,8 @@ class MediaCollectHelper(_PluginBase):
         tvdb_id = str(sub.tvdbid) if sub.tvdbid else None
         return MediaDigest(title=sub.name, year=sub.year, type=MediaType(sub.type), tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
 
-    def __get_media_data_from_subscribe_history(self) -> List[MediaDigest]:
+    # noinspection PyProtectedMember,PyTypeChecker
+    async def __get_media_data_from_subscribe_history(self) -> List[MediaDigest]:
         """
         从MP订阅历史中获取媒体数据
         """
@@ -909,13 +926,15 @@ class MediaCollectHelper(_PluginBase):
         collect_media_types_as_enum_value = self.__get_collect_media_types_as_enum_value()
         if not collect_media_types_as_enum_value:
             return []
-        sub_his_list: List[SubscribeHistory] = SubscribeHistory.list()
+        sub_his_list: List[SubscribeHistory] = await self.__subscribe_history_oper._execute_async_query(
+            lambda db: SubscribeHistory.list(db=db)
+        )
         if not sub_his_list:
             return []
         return [self.__convert_subscribe_history_to_media_digest(sub_his=sub_his) for sub_his in sub_his_list if sub_his and sub_his.type and sub_his.type in collect_media_types_as_enum_value]
 
     @classmethod
-    def __convert_subscribe_history_to_media_digest(cls, sub_his: SubscribeHistory) -> MediaDigest:
+    def __convert_subscribe_history_to_media_digest(cls, sub_his: SubscribeHistory) -> Optional[MediaDigest]:
         """
         把SubscribeHistory转换为MediaDigest
         """
@@ -926,13 +945,13 @@ class MediaCollectHelper(_PluginBase):
         tvdb_id = str(sub_his.tvdbid) if sub_his.tvdbid else None
         return MediaDigest(title=sub_his.name, year=sub_his.year, type=MediaType(sub_his.type), tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
 
-    def __get_media_data(self) -> List[MediaDigest]:
+    async def __get_media_data(self) -> List[MediaDigest]:
         """
         获取媒体数据
         """
-        data: List[MediaDigest] = self.__get_media_data_from_media_library() \
-                                + self.__get_media_data_from_subscribe() \
-                                + self.__get_media_data_from_subscribe_history()
+        data: List[MediaDigest] = await self.__get_media_data_from_media_library() \
+                                  + await self.__get_media_data_from_subscribe() \
+                                  + await self.__get_media_data_from_subscribe_history()
         result: List[MediaDigest] = []
         if not data:
             return result
@@ -944,7 +963,7 @@ class MediaCollectHelper(_PluginBase):
             tmdb_ids.add(md.tmdb_id)
         return result
 
-    def __check_event_and_get_mediainfo(self, event: Optional[Event]) -> Tuple[bool, Union[MediaInfo, dict]]:
+    def __check_event_and_get_mediainfo(self, event: Optional[Event]) -> Tuple[bool, Optional[Union[MediaInfo, dict]]]:
         """
         检查事件对象并返回媒体信息
         """
