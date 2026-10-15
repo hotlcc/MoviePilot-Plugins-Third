@@ -1,5 +1,4 @@
 # noinspection DuplicatedCode
-import asyncio
 from datetime import datetime, timedelta
 from threading import RLock, Event as ThreadEvent
 from typing import Any, List, Dict, Tuple, OrderedDict, Type, Optional, Union
@@ -37,7 +36,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "3.0.2"
+    plugin_version = "3.0.3"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -782,7 +781,7 @@ class MediaCollectHelper(_PluginBase):
                 logger.warn(f"运行任务中止: 插件正在退出")
                 return
             if not media_data:
-                media_data = asyncio.run(self.__get_media_data())
+                media_data = self.__get_media_data()
             if not media_data:
                 logger.warn("没有找到符合条件的影视信息，请检查配置是否有误")
                 return
@@ -891,7 +890,7 @@ class MediaCollectHelper(_PluginBase):
             return None
         return MediaDigest(title=msi.title, year=msi.year, type=MediaType(msi.item_type), media_source=media_source, media_id=msi.media_id)
 
-    async def __get_media_data_from_subscribe(self) -> List[MediaDigest]:
+    def __get_media_data_from_subscribe(self) -> List[MediaDigest]:
         """
         从MP订阅中获取媒体数据
         """
@@ -901,7 +900,7 @@ class MediaCollectHelper(_PluginBase):
         collect_media_types_as_enum_value = self.__get_collect_media_types_as_enum_value()
         if not collect_media_types_as_enum_value:
             return []
-        sub_list: List[Subscribe] = await self.__subscribe_oper.async_list()
+        sub_list: List[Subscribe] = self.__subscribe_oper.list()
         if not sub_list:
             return []
         result = [self.__convert_subscribe_to_media_digest(sub=sub) for sub in sub_list if sub and sub.type and sub.type in collect_media_types_as_enum_value]
@@ -921,7 +920,7 @@ class MediaCollectHelper(_PluginBase):
         return MediaDigest(title=sub.name, year=sub.year, type=MediaType(sub.type), media_source=media_source, media_id=sub.media_id)
 
     # noinspection PyProtectedMember,PyTypeChecker
-    async def __get_media_data_from_subscribe_history(self) -> List[MediaDigest]:
+    def __get_media_data_from_subscribe_history(self) -> List[MediaDigest]:
         """
         从MP订阅历史中获取媒体数据
         """
@@ -931,7 +930,7 @@ class MediaCollectHelper(_PluginBase):
         collect_media_types_as_enum_value = self.__get_collect_media_types_as_enum_value()
         if not collect_media_types_as_enum_value:
             return []
-        sub_his_list: List[SubscribeHistory] = await self.__subscribe_history_oper._execute_async_query(
+        sub_his_list: List[SubscribeHistory] = self.__subscribe_history_oper._execute_sync_query(
             lambda db: SubscribeHistory.list(db=db)
         )
         if not sub_his_list:
@@ -952,13 +951,13 @@ class MediaCollectHelper(_PluginBase):
             return None
         return MediaDigest(title=sub_his.name, year=sub_his.year, type=MediaType(sub_his.type), media_source=media_source, media_id=sub_his.media_id)
 
-    async def __get_media_data(self) -> List[MediaDigest]:
+    def __get_media_data(self) -> List[MediaDigest]:
         """
         获取媒体数据
         """
         data: List[MediaDigest] = self.__get_media_data_from_media_library() \
-                                  + await self.__get_media_data_from_subscribe() \
-                                  + await self.__get_media_data_from_subscribe_history()
+                                  + self.__get_media_data_from_subscribe() \
+                                  + self.__get_media_data_from_subscribe_history()
         result: List[MediaDigest] = []
         if not data:
             return result
