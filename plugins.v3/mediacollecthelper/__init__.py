@@ -37,7 +37,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "3.0.1"
+    plugin_version = "3.0.2"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -853,14 +853,14 @@ class MediaCollectHelper(_PluginBase):
             logger.error(f"运行单个收藏夹[{comp_obj.comp_name}]任务异常: {str(e)}", exc_info=True)
             raise e
 
-    async def __get_media_data_from_media_library(self) -> List[MediaDigest]:
+    def __get_media_data_from_media_library(self) -> List[MediaDigest]:
         """
         从MP媒体库中获取媒体数据
         """
-        return await self.__get_media_data_from_media_library_db()
+        return self.__get_media_data_from_media_library_db()
 
     # noinspection PyProtectedMember,PyTypeChecker
-    async def __get_media_data_from_media_library_db(self) -> List[MediaDigest]:
+    def __get_media_data_from_media_library_db(self) -> List[MediaDigest]:
         """
         从MP媒体库数据库中获取媒体数据
         """
@@ -870,7 +870,7 @@ class MediaCollectHelper(_PluginBase):
         collect_media_types_as_enum_value = self.__get_collect_media_types_as_enum_value()
         if not collect_media_types_as_enum_value:
             return []
-        msi_list: List[MediaServerItem] = await self.__media_server_oper._execute_async_query(
+        msi_list: List[MediaServerItem] = self.__media_server_oper._execute_sync_query(
             lambda db: MediaServerItem.list(db=db)
         )
         if not msi_list:
@@ -956,7 +956,7 @@ class MediaCollectHelper(_PluginBase):
         """
         获取媒体数据
         """
-        data: List[MediaDigest] = await self.__get_media_data_from_media_library() \
+        data: List[MediaDigest] = self.__get_media_data_from_media_library() \
                                   + await self.__get_media_data_from_subscribe() \
                                   + await self.__get_media_data_from_subscribe_history()
         result: List[MediaDigest] = []
