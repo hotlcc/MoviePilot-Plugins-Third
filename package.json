@@ -104,6 +104,7 @@
         "author": "hotlcc",
         "level": 1,
         "v2": true,
+        "v3": false,
         "history": {
             "v1.17.1": "优化Linkding收藏逻辑。",
             "v1.17": "优化tabs标题大小写。",
