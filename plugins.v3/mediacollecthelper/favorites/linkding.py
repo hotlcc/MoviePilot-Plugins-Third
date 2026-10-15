@@ -291,7 +291,7 @@ class LinkdingFavorites(Favorites):
         """
         # 如果先前有记忆，则通过记忆判断是否已经添加
         if memory:
-            media_data = [mdata for mdata in media_data if mdata and mdata.tmdb_id and self.__build_media_unique_key_by_media(media_data=mdata) not in memory]
+            media_data = [mdata for mdata in media_data if mdata and mdata.type and mdata.media_source and mdata.media_id and self.__build_media_unique_key_by_media(media_data=mdata) not in memory]
             logger.info(f"收藏影视前: 根据记忆进行存在性过滤后还有{len(media_data)}个需要收藏")
             if self.__exit_event.is_set():
                 logger.warn('运行任务中止: 组件正在退出')
@@ -309,7 +309,7 @@ class LinkdingFavorites(Favorites):
                 return []
             linkding_exists_media_unique_keys = self.__get_linkding_exists_media_unique_keys()
             logger.info(f"收藏影视前: 检索到Linkding中已有{len(linkding_exists_media_unique_keys)}个收藏")
-            media_data = [mdata for mdata in media_data if mdata and mdata.tmdb_id and self.__build_media_unique_key_by_media(media_data=mdata) not in linkding_exists_media_unique_keys]
+            media_data = [mdata for mdata in media_data if mdata and mdata.type and mdata.media_source and mdata.media_id and self.__build_media_unique_key_by_media(media_data=mdata) not in linkding_exists_media_unique_keys]
             logger.info(f"收藏影视前: 根据Linkding检索结果进行存在性过滤后还有{len(media_data)}个需要收藏")
             if self.__exit_event.is_set():
                 logger.warn('运行任务中止: 组件正在退出')
@@ -513,9 +513,10 @@ class LinkdingFavorites(Favorites):
         """
         根据媒体信息构造媒体唯一键
         """
-        if not media_data:
+        if not media_data or not media_data.type or not media_data.media_source or not media_data.media_id:
             return None
-        return cls.__build_media_unique_key(platform="tmdb", media_type=media_data.type, platform_id=media_data.tmdb_id)
+        platform = media_data.media_source.name.lower()
+        return cls.__build_media_unique_key(platform=platform, media_type=media_data.type, platform_id=media_data.media_id)
 
     @classmethod
     def __build_media_unique_keys_by_media(cls, media_data: Optional[List[MediaDigest]]) -> Set[str]:
@@ -524,7 +525,7 @@ class LinkdingFavorites(Favorites):
         """
         if not media_data:
             return set()
-        media_unique_keys = [cls.__build_media_unique_key_by_media(media_data=item) for item in media_data if item and item.type and item.tmdb_id]
+        media_unique_keys = [cls.__build_media_unique_key_by_media(media_data=item) for item in media_data if item and item.type and item.media_source and item.media_id]
         return set(media_unique_keys)
 
     # noinspection PyTypeChecker
@@ -538,13 +539,19 @@ class LinkdingFavorites(Favorites):
         unique_key_arr = unique_key.split(":")
         if len(unique_key_arr) != 3:
             return None
-        _, media_type, platform_id = unique_key_arr
-        if not media_type or not platform_id:
+        platform, media_type, platform_id = unique_key_arr
+        if not platform or not media_type or not platform_id:
+            return None
+        if platform == "tmdb":
+            media_source = MediaSource.TMDB
+        else:
+            media_source = None
+        if not media_source:
             return None
         media_type = MediaType._member_map_.get(media_type.upper())
         if not media_type:
             return None
-        return MediaDigest(type=media_type, tmdb_id=platform_id)
+        return MediaDigest(type=media_type, media_source=media_source, media_id=platform_id)
 
     @classmethod
     def __build_medias_by_unique_keys(cls, unique_keys: Set[str]) -> List[MediaDigest]:
@@ -727,7 +734,7 @@ class LinkdingFavorites(Favorites):
         if not media_info:
             return None
         links = []
-        if media_info.media_source == MediaSource.TMDB and media_info.tmdb_id and media_info.detail_link:
+        if media_info.media_source == MediaSource.TMDB and media_info.media_id and media_info.detail_link:
             links.append(cls.__build_markdown_link(text="TMDB", url=media_info.detail_link))
         if media_info.imdb_id:
             links.append(cls.__build_markdown_link(text="IMDB", url=f"https://www.imdb.com/title/{media_info.imdb_id}"))
@@ -809,7 +816,7 @@ class LinkdingFavorites(Favorites):
         """
         收藏单个
         """
-        if not media_data or not media_data.tmdb_id or not media_data.type:
+        if not media_data or not media_data.media_source or not media_data.media_id or not media_data.type:
             logger.error(f"{self.comp_name} - 单个影视收藏失败: 影视信息不完整, media_data = {media_data.dict() if media_data else None}")
             return False
         if self.__exit_event.is_set():
@@ -817,7 +824,7 @@ class LinkdingFavorites(Favorites):
             return False
         media_info: Optional[MediaInfo] = self.recognize_media_info(media_data=media_data)
         if not media_info:
-            logger.error(f"{self.comp_name} - 单个影视收藏失败: 未识别到媒体, title = {media_data.title}, year = {media_data.year}, type = {media_data.type}, tmdb_id = {media_data.tmdb_id}")
+            logger.error(f"{self.comp_name} - 单个影视收藏失败: 未识别到媒体, title = {media_data.title}, year = {media_data.year}, type = {media_data.type}, media_source = {media_data.media_source}, media_id = {media_data.media_id}")
             return False
         if self.__exit_event.is_set():
             logger.warn('运行任务中止: 组件正在退出')
@@ -834,7 +841,7 @@ class LinkdingFavorites(Favorites):
             return False
         success, error_msg = self.__linkding_api_save_bookmark(base_url=linkding_base_url, token=linkding_token, bookmark=bookmark)
         if not success:
-            logger.error(f"{self.comp_name} - 单个影视收藏失败: {error_msg}, title = {media_info.title}, year = {media_info.year}, type = {media_info.type}, tmdb_id = {media_info.tmdb_id}")
+            logger.error(f"{self.comp_name} - 单个影视收藏失败: {error_msg}, title = {media_info.title}, year = {media_info.year}, type = {media_info.type}, media_source = {media_info.media_source}, media_id = {media_info.media_id}")
             return False
-        logger.info(f"{self.comp_name} - 单个影视收藏成功: title = {media_info.title}, year = {media_info.year}, type = {media_info.type}, tmdb_id = {media_info.tmdb_id}")
+        logger.info(f"{self.comp_name} - 单个影视收藏成功: title = {media_info.title}, year = {media_info.year}, type = {media_info.type}, media_source = {media_info.media_source}, media_source = {media_info.media_source}")
         return True

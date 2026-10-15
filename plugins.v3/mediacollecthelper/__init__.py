@@ -889,7 +889,7 @@ class MediaCollectHelper(_PluginBase):
         media_source: MediaSource = MediaSource._value2member_map_.get(msi.media_source)
         if not media_source:
             return None
-        return MediaDigest(title=msi.title, year=msi.year, type=MediaType(msi.item_type), media_source=media_source, media_id=media_id)
+        return MediaDigest(title=msi.title, year=msi.year, type=MediaType(msi.item_type), media_source=media_source, media_id=msi.media_id)
 
     async def __get_media_data_from_subscribe(self) -> List[MediaDigest]:
         """
@@ -918,7 +918,7 @@ class MediaCollectHelper(_PluginBase):
         media_source: MediaSource = MediaSource._value2member_map_.get(sub.media_source)
         if not media_source:
             return None
-        return MediaDigest(title=sub.name, year=sub.year, type=MediaType(sub.type), media_source=media_source, media_id=media_id)
+        return MediaDigest(title=sub.name, year=sub.year, type=MediaType(sub.type), media_source=media_source, media_id=sub.media_id)
 
     # noinspection PyProtectedMember,PyTypeChecker
     async def __get_media_data_from_subscribe_history(self) -> List[MediaDigest]:
@@ -950,7 +950,7 @@ class MediaCollectHelper(_PluginBase):
         media_source: MediaSource = MediaSource._value2member_map_.get(sub_his.media_source)
         if not media_source:
             return None
-        return MediaDigest(title=sub_his.name, year=sub_his.year, type=MediaType(sub_his.type), media_source=media_source, media_id=media_id)
+        return MediaDigest(title=sub_his.name, year=sub_his.year, type=MediaType(sub_his.type), media_source=media_source, media_id=sub_his.media_id)
 
     async def __get_media_data(self) -> List[MediaDigest]:
         """
@@ -1014,15 +1014,12 @@ class MediaCollectHelper(_PluginBase):
             if self.__exit_event.is_set():
                 logger.warn('插件服务正在退出，忽略事件')
                 return
-            atomic_cache_key = f"tmdb:{mediainfo.type.name.lower()}:{mediainfo.tmdb_id}"
+            atomic_cache_key = f"atomic_cache_key:{mediainfo.type.name}:{mediainfo.media_source}:{mediainfo.media_id}"
             if self.__atomic_cache.get_and_set(key=atomic_cache_key, value=True):
                 logger.warn(f'短期内已经处理过该媒体，忽略事件: title = {mediainfo.title}, year = {mediainfo.year}, type = {mediainfo.type}, tmdb_id = {mediainfo.tmdb_id}')
                 return
             logger.info('转移完成事件监听任务执行开始...')
-            tmdb_id = str(mediainfo.tmdb_id) if mediainfo.tmdb_id else None
-            imdb_id = str(mediainfo.imdb_id) if mediainfo.imdb_id else None
-            tvdb_id = str(mediainfo.tvdb_id) if mediainfo.tvdb_id else None
-            md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
+            md = MediaDigest(title=mediainfo.title, year=mediainfo.year, type=mediainfo.type, media_source=mediainfo.media_source, media_id=mediainfo.media_id)
             self.__async_block_run(media_data=[md])
             logger.info('转移完成事件监听任务执行成功')
         except Exception as e:
@@ -1052,10 +1049,11 @@ class MediaCollectHelper(_PluginBase):
                 logger.warn('插件服务正在退出，忽略事件')
                 return
             logger.info('订阅已添加事件监听任务执行开始...')
-            tmdb_id = str(mediainfo.get("tmdb_id")) if mediainfo.get("tmdb_id") else None
-            imdb_id = str(mediainfo.get("imdb_id")) if mediainfo.get("imdb_id") else None
-            tvdb_id = str(mediainfo.get("tvdb_id")) if mediainfo.get("tvdb_id") else None
-            md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=media_type, tmdb_id=tmdb_id, imdb_id=imdb_id, tvdb_id=tvdb_id)
+            tmdb_id = mediainfo.get("tmdb_id")
+            tmdb_id = str(tmdb_id) if tmdb_id else None
+            if not tmdb_id:
+                return
+            md = MediaDigest(title=mediainfo.get("title"), year=mediainfo.get("year"), type=media_type, media_source=MediaSource.TMDB, media_id=tmdb_id)
             self.__async_block_run(media_data=[md])
             logger.info('订阅已添加事件监听任务执行成功')
         except Exception as e:

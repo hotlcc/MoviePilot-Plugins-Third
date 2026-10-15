@@ -155,19 +155,19 @@ class Favorites(metaclass=ABCMeta):
         """
         if not media_data:
             return None
-        media_info =  self.recognize_media_info_by_tmdb(media_type=media_data.type, tmdb_id=media_data.tmdb_id)
+        media_info = self.recognize_media_info_with_cache(media_type=media_data.type, medis_source=media_data.media_source, media_id=media_data.media_id)
         if not media_info:
-            logger.warn(f"{self.comp_name} - 未识别到媒体信息: tmdb_id = {media_data.tmdb_id}, type = {media_data.type}, title = {media_data.title}, year = {media_data.year}")
+            logger.warn(f"{self.comp_name} - 未识别到媒体信息: media_source = {media_data.media_source}, media_id = {media_data.media_id}, type = {media_data.type}, title = {media_data.title}, year = {media_data.year}")
         return media_info
 
     @cached(cache=TTLCache(maxsize=10000, ttl=600))
-    def recognize_media_info_by_tmdb(self, media_type: MediaType, tmdb_id: str) -> Optional[MediaInfo]:
+    def recognize_media_info_with_cache(self, media_type: MediaType, medis_source: MediaSource, media_id: str) -> Optional[MediaInfo]:
         """
         根据tmdb识别媒体信息
         """
-        if not media_type or not tmdb_id:
+        if not media_type or not medis_source or not media_id:
             return None
-        return MediaChain().recognize_media(media_source=MediaSource.TMDB, media_id=tmdb_id, mtype=media_type)
+        return MediaChain().recognize_media(mtype=media_type, media_source=medis_source, media_id=media_id)
 
     @abstractmethod
     def init_comp(self):
