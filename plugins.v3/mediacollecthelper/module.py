@@ -19,6 +19,10 @@ class MediaDigest(BaseModel):
     media_source: Optional[MediaSource] = None
     media_id: Optional[str] = None
 
+    @property
+    def unique_key(self) -> str:
+        return f"{self.type}:{self.media_source}:{self.media_id}"
+
 
 class MediaDataSource(Enum):
     """

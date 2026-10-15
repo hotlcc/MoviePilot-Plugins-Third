@@ -141,12 +141,15 @@ class Favorites(metaclass=ABCMeta):
         result: List[MediaDigest] = []
         if not media_data:
             return result
-        tmdb_ids = set()
+        unique_keys = set()
         for md in media_data:
-            if not md or not md.tmdb_id or md.tmdb_id in tmdb_ids:
+            if not md:
+                continue
+            unique_key = md.unique_key
+            if unique_key in unique_keys:
                 continue
             result.append(md)
-            tmdb_ids.add(md.tmdb_id)
+            unique_keys.add(unique_key)
         return result
 
     def recognize_media_info(self, media_data: MediaDigest) -> Optional[MediaInfo]:

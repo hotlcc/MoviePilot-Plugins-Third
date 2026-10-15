@@ -36,7 +36,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "3.0.5"
+    plugin_version = "3.0.6"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -961,15 +961,15 @@ class MediaCollectHelper(_PluginBase):
         result: List[MediaDigest] = []
         if not data:
             return result
-        keys = set()
+        unique_keys = set()
         for md in data:
-            if not md or not md.type or not md.media_source or not md.media_id:
+            if not md:
                 continue
-            key = f"{md.media_source}_{md.media_id}"
-            if key in keys:
+            unique_key = md.unique_key
+            if unique_key in unique_keys:
                 continue
             result.append(md)
-            keys.add(key)
+            unique_keys.add(unique_key)
         return result
 
     def __check_event_and_get_mediainfo(self, event: Optional[Event]) -> Tuple[bool, Optional[Union[MediaInfo, dict]]]:
