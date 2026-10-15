@@ -458,16 +458,16 @@ class NavidromeRadioSource(_PluginBase):
             if self.__exit_event.is_set():
                 logger.warn(f"运行任务中止: 插件正在退出")
                 return
-            self.__run(media_data=media_data)
+            self.__run()
         finally:
             self.__task_lock.release()
 
-    def __async_try_run(self, media_data: List[MediaDigest] = None):
+    def __async_try_run(self):
         """
         异步Try运行
         """
         def __do_task():
-            self.__try_run(media_data=media_data)
+            self.__try_run()
 
         scheduler: BackgroundScheduler = self.__scheduler
         scheduler.add_job(func=__do_task,
@@ -475,7 +475,7 @@ class NavidromeRadioSource(_PluginBase):
                           run_date=datetime.now(tz=pytz.timezone(settings.TZ)) + timedelta(seconds=3),
                           name='异步Try运行')
 
-    def __block_run(self, media_data: List[MediaDigest] = None):
+    def __block_run(self):
         """
         阻塞运行插件任务
         """
@@ -487,18 +487,16 @@ class NavidromeRadioSource(_PluginBase):
             if self.__exit_event.is_set():
                 logger.warn(f"运行任务中止: 插件正在退出")
                 return
-            self.__run(media_data=media_data)
+            self.__run()
         finally:
             self.__task_lock.release()
 
-    def __async_block_run(self, media_data: List[MediaDigest] = None):
+    def __async_block_run(self):
         """
         异步阻塞运行
         """
-        self.__start_scheduler()
-
         def __do_task():
-            self.__block_run(media_data=media_data)
+            self.__block_run()
 
         scheduler: BackgroundScheduler = self.__scheduler
         scheduler.add_job(func=__do_task,
@@ -510,39 +508,14 @@ class NavidromeRadioSource(_PluginBase):
         """
         运行任务
         """
-        run_results: List[Tuple[bool, str, Favorites, List[MediaDigest]]] = []
-        try:
-            if self.__exit_event.is_set():
-                logger.warn(f"运行任务中止: 插件正在退出")
-                return
-            enable_favorites = self.__get_config_item(config_key="enable_favorites")
-            if not enable_favorites:
-                logger.warn("运行任务中止: 您未启用任何收藏夹")
-                return
-            if self.__exit_event.is_set():
-                logger.warn(f"运行任务中止: 插件正在退出")
-                return
-            if not media_data:
-                media_data = self.__get_media_data()
-            if not media_data:
-                logger.warn("没有找到符合条件的影视信息，请检查配置是否有误")
-                return
-            if self.__exit_event.is_set():
-                logger.warn(f"运行任务中止: 插件正在退出")
-                return
-            for comp_key, comp_obj in self.__comp_objs.items():
-                try:
-                    if self.__exit_event.is_set():
-                        logger.warn(f"运行任务中止: 插件正在退出, comp_key = {comp_key}")
-                        break
-                    result = self.__run_single(comp_obj=comp_obj, media_data=media_data)
-                    run_results.append((True, comp_key, comp_obj, result))
-                    logger.info(f"收藏夹[{comp_obj.comp_name}]任务执行完成, 共收藏了{len(result)}个")
-                except Exception as e:
-                    logger.error(f"收藏夹[{comp_obj.comp_name}]任务执行异常: {str(e)}", exc_info=True)
-                    run_results.append((False, comp_key, comp_obj, None))
-        except Exception as e:
-            logger.error(f"运行插件任务异常: {str(e)}", exc_info=True)
+        navidrome_server = self.__get_config_item(config_key="navidrome_server")
+        if not navidrome_server:
+            logger.warn("请选择Navidrome服务器")
+            return
+        navidrome_config = self.__get_navidrome_config(name=navidrome_server)
+        if not navidrome_config or navidrome_config.config:
+            logger.warn("选择的Navidrome服务器无效")
+            return
 
     def __get_navidrome_configs(self) -> Optional[List[MediaServerConf]]:
         config_map = self.__media_server_helper.get_configs(include_disabled=True) or {}
