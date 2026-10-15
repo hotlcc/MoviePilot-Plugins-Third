@@ -1,12 +1,14 @@
-from cachetools import Cache
+# noinspection DuplicatedCode
 from enum import Enum
-from pydantic import BaseModel
 from threading import RLock
 from typing import Optional
 
 from app.schemas.types import MediaType
+from cachetools import Cache
+from pydantic import BaseModel
 
 
+# noinspection DuplicatedCode
 class MediaDigest(BaseModel):
     """
     媒体摘要
@@ -28,7 +30,8 @@ class MediaDataSource(Enum):
     SUBSCRIBE_HISTORY = "订阅历史"
 
 
-class AtomicCache():
+# noinspection DuplicatedCode
+class AtomicCache:
     """
     原子缓存操作（线程安全）
     """

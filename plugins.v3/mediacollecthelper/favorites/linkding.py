@@ -1,15 +1,17 @@
-from pydantic import BaseModel
-from requests import Response
+# noinspection DuplicatedCode
 import re
 from threading import Event as ThreadEvent
 from typing import Any, List, Dict, Tuple, Set, Optional, Union
 
-from app.core.context import MediaInfo
-from app.log import logger
-from app.plugins.mediacollecthelper.favorites import Favorites
-from app.plugins.mediacollecthelper.module import MediaDigest
-from app.schemas.types import MediaType
-from app.utils.http import RequestUtils
+from app.schemas.types import MediaType, MediaSource
+from app.sdk.logging import logger
+from app.sdk.media import MediaInfo
+from app.sdk.network import RequestUtils
+from pydantic import BaseModel
+from requests import Response
+
+from . import Favorites
+from ..module import MediaDigest
 
 
 class Bookmark(BaseModel):
@@ -17,15 +19,16 @@ class Bookmark(BaseModel):
     书签
     """
     url: str
-    title: str = None
-    description: str = None
-    notes: str = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    notes: Optional[str] = None
     is_archived: bool = False
     unread: bool = False
     shared: bool = False
     tag_names: Optional[List[str]] = None
 
 
+# noinspection SpellCheckingInspection,DuplicatedCode,PyDeprecation
 class LinkdingFavorites(Favorites):
     """
     Linkding 收藏夹
@@ -231,7 +234,7 @@ class LinkdingFavorites(Favorites):
         full_coverage = True if self.__check_full_coverage() else False
         if not self.__check_config():
             logger.warn(f"收藏影视前: 配置检查不通过")
-            return
+            return []
         logger.info(f"收藏影视前: total = {total}, full_coverage = {full_coverage}")
         # 记忆阈值
         memory_threshold = self.get_config_item(config_key="memory_threshold") or 1000
@@ -382,7 +385,7 @@ class LinkdingFavorites(Favorites):
         return True
 
     @classmethod
-    def __linkding_build_authorization_header(cls, token: str) -> str:
+    def __linkding_build_authorization_header(cls, token: str) -> Optional[str]:
         """
         构造 Linkding Token header 值
         """
@@ -391,7 +394,7 @@ class LinkdingFavorites(Favorites):
         return f'Token {token}'
 
     @classmethod
-    def __linkding_api_check_response(cls, response: Optional[Response]) -> Tuple[bool, str]:
+    def __linkding_api_check_response(cls, response: Optional[Response]) -> Tuple[bool, Optional[str]]:
         """
         检查响应
         """
@@ -426,7 +429,7 @@ class LinkdingFavorites(Favorites):
         ).post_res(url=url, json=bookmark.dict(exclude_none=True))
         return self.__linkding_api_check_response(response=response)
 
-    def __linkding_api_search_bookmarks(self, base_url: str, token: str, search_str: str) -> Tuple[bool, str, Optional[List[Bookmark]]]:
+    def __linkding_api_search_bookmarks(self, base_url: str, token: str, search_str: str) -> Tuple[bool, Optional[str], Optional[List[Bookmark]]]:
         """
         Linkding搜索书签
         """
@@ -524,6 +527,7 @@ class LinkdingFavorites(Favorites):
         media_unique_keys = [cls.__build_media_unique_key_by_media(media_data=item) for item in media_data if item and item.type and item.tmdb_id]
         return set(media_unique_keys)
 
+    # noinspection PyTypeChecker
     @classmethod
     def __build_media_by_unique_key(cls, unique_key: str) -> Optional[MediaDigest]:
         """
@@ -584,7 +588,8 @@ class LinkdingFavorites(Favorites):
         custom_tags_str = self.get_config_item(config_key="custom_tags")
         return re.split("\s*,\s*", custom_tags_str.strip()) if custom_tags_str else []
 
-    def __build_bookmark_title_by_media_info(self, media_info: MediaInfo) -> Bookmark:
+    @classmethod
+    def __build_bookmark_title_by_media_info(cls, media_info: MediaInfo) -> Optional[str]:
         """
         根据媒体信息构造书签标题
         """
@@ -596,7 +601,7 @@ class LinkdingFavorites(Favorites):
             return f"{media_info.title} — The Movie Database (TMDB)"
 
     def __build_bookmark_markdown_notes_by_media_info(self, media_info: MediaInfo,
-                                                      auto_tags: bool) -> Bookmark:
+                                                      auto_tags: bool) -> Optional[str]:
         """
         根据媒体信息构造书签markdown备注
         """
@@ -631,7 +636,7 @@ class LinkdingFavorites(Favorites):
         return notes
 
     @classmethod
-    def __build_markdown_link(cls, text: str, url: str) -> str:
+    def __build_markdown_link(cls, text: str, url: str) -> Optional[str]:
         """
         生成markdown链接
         """
@@ -641,14 +646,15 @@ class LinkdingFavorites(Favorites):
             return text
         return f"[{text}]({url})"
 
-    def __build_bookmark_notes_tag_markdown_link(self, text: str) -> str:
+    @classmethod
+    def __build_bookmark_notes_tag_markdown_link(cls, text: str) -> str:
         """
         生成书签标签markdown链接
         """
-        return self.__build_markdown_link(text=text, url=f"?q=%23{text}")
+        return cls.__build_markdown_link(text=text, url=f"?q=%23{text}")
 
     def __build_bookmark_markdown_notes_type_category_by_media_info(self, media_info: MediaInfo,
-                                                                    auto_tags: bool) -> str:
+                                                                    auto_tags: bool) -> Optional[str]:
         """
         生成类型
         """
@@ -666,7 +672,7 @@ class LinkdingFavorites(Favorites):
         return " · ".join(type_category)
 
     def __build_bookmark_markdown_notes_genres_by_media_info(self, media_info: MediaInfo,
-                                                             auto_tags: bool) -> str:
+                                                             auto_tags: bool) -> Optional[str]:
         """
         生成风格
         """
@@ -680,7 +686,7 @@ class LinkdingFavorites(Favorites):
         return " | ".join(genre_names)
 
     @classmethod
-    def __mapping_media_genre_name(cls, genre_name: str) -> str:
+    def __mapping_media_genre_name(cls, genre_name: str) -> Optional[str]:
         """
         映射媒体风格名称
         """
@@ -689,7 +695,8 @@ class LinkdingFavorites(Favorites):
         mapping_name = cls.__media_genre_name_mappings.get(genre_name)
         return mapping_name or genre_name
 
-    def __build_bookmark_markdown_notes_directors_by_media_info(self, media_info: MediaInfo) -> str:
+    @classmethod
+    def __build_bookmark_markdown_notes_directors_by_media_info(cls, media_info: MediaInfo) -> Optional[str]:
         """
         生成导演
         """
@@ -700,7 +707,8 @@ class LinkdingFavorites(Favorites):
             return None
         return " | ".join(director_names)
 
-    def __build_bookmark_markdown_notes_actors_by_media_info(self, media_info: MediaInfo) -> str:
+    @classmethod
+    def __build_bookmark_markdown_notes_actors_by_media_info(cls, media_info: MediaInfo) -> Optional[str]:
         """
         生成演员
         """
@@ -711,26 +719,27 @@ class LinkdingFavorites(Favorites):
             return None
         return " | ".join(actor_names)
 
-    def __build_bookmark_markdown_notes_links_by_media_info(self, media_info: MediaInfo) -> str:
+    @classmethod
+    def __build_bookmark_markdown_notes_links_by_media_info(cls, media_info: MediaInfo) -> Optional[str]:
         """
         生成链接
         """
         if not media_info:
             return None
         links = []
-        if media_info.source == "themoviedb" and media_info.tmdb_id and media_info.detail_link:
-            links.append(self.__build_markdown_link(text="TMDB", url=media_info.detail_link))
+        if media_info.media_source == MediaSource.TMDB and media_info.tmdb_id and media_info.detail_link:
+            links.append(cls.__build_markdown_link(text="TMDB", url=media_info.detail_link))
         if media_info.imdb_id:
-            links.append(self.__build_markdown_link(text="IMDB", url=f"https://www.imdb.com/title/{media_info.imdb_id}"))
+            links.append(cls.__build_markdown_link(text="IMDB", url=f"https://www.imdb.com/title/{media_info.imdb_id}"))
         if media_info.tvdb_id:
-            links.append(self.__build_markdown_link(text="TVDB", url=f"https://www.thetvdb.com/series/{media_info.tvdb_id}"))
-        if media_info.source == "douban" and media_info.douban_id and media_info.detail_link:
-            links.append(self.__build_markdown_link(text="豆瓣", url=media_info.detail_link))
+            links.append(cls.__build_markdown_link(text="TVDB", url=f"https://www.thetvdb.com/series/{media_info.tvdb_id}"))
+        if media_info.media_source == MediaSource.Douban and media_info.douban_id and media_info.detail_link:
+            links.append(cls.__build_markdown_link(text="豆瓣", url=media_info.detail_link))
         return " | ".join(links)
 
     def __build_bookmark_tags_by_media_info(self, media_info: MediaInfo,
                                             custom_tags: List[str],
-                                            auto_tags: bool) -> List[str]:
+                                            auto_tags: bool) -> Optional[List[str]]:
         """
         生成标签
         """
@@ -738,7 +747,7 @@ class LinkdingFavorites(Favorites):
             return None
         if not custom_tags and not auto_tags:
             return None
-        tags = set(["影视", "TMDB"])
+        tags = {"影视", "TMDB"}
         if custom_tags:
             tags.update(custom_tags)
         if auto_tags:

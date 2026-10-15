@@ -1,15 +1,19 @@
+# noinspection DuplicatedCode
 from abc import ABCMeta, abstractmethod
-from cachetools import cached, TTLCache
 from typing import Any, List, Dict, Tuple, Optional
 
 from app.chain.media import MediaChain
-from app.core.context import MediaInfo
-from app.log import logger
-from app.plugins import _PluginBase
-from app.plugins.mediacollecthelper.module import MediaDigest
-from app.schemas.types import MediaType
+from app.schemas.types import MediaType, MediaSource
+from app.sdk.logging import logger
+from app.sdk.media import MediaInfo
+# noinspection PyProtectedMember
+from app.sdk.plugin.base import _PluginBase
+from cachetools import cached, TTLCache
+
+from ..module import MediaDigest
 
 
+# noinspection DuplicatedCode
 class Favorites(metaclass=ABCMeta):
     """
     收藏夹组件基类
@@ -61,7 +65,7 @@ class Favorites(metaclass=ABCMeta):
         :return: 配置值
         """
         if not config_key:
-            return None
+            raise Exception("参数错误[config_key]")
         config = self.get_config() or {}
         config_default = self.__config_default or {}
         config_value = config.get(config_key)
@@ -74,7 +78,7 @@ class Favorites(metaclass=ABCMeta):
         根据组件数据kee构造插件数据key
         """
         if not key:
-            return None
+            raise Exception("参数错误[key]")
         return f"comp-data.{self.comp_key}.{key}"
 
     def save_data(self, key: str, value: Any):
@@ -115,20 +119,22 @@ class Favorites(metaclass=ABCMeta):
         """
         删除组件数据
         :param key: 数据key
+        :param plugin_id: 指定插件ID，缺省时为自身
         """
         if not key:
             logger.warn(f"{self.comp_name} - 删除组件数据 - 中止: 参数key无效")
             return None
         try:
             plugin_data_key = self.__build_plugin_data_key(key=key)
-            value = self.__plugin.del_data(key=plugin_data_key)
+            value = self.__plugin.del_data(key=plugin_data_key, plugin_id=plugin_id)
             logger.debug(f"{self.comp_name} - 删除组件数据 - 成功: key = {key}, value = {str(value)}")
             return value
         except Exception as e:
             logger.error(f"{self.comp_name} - 删除组件数据 - 异常: {str(e)}, key = {key}", exc_info=True)
             raise e
 
-    def distinct_media_digests(self, media_data: List[MediaDigest]) -> List[MediaDigest]:
+    @classmethod
+    def distinct_media_digests(cls, media_data: List[MediaDigest]) -> List[MediaDigest]:
         """
         媒体摘要去重
         """
@@ -161,7 +167,7 @@ class Favorites(metaclass=ABCMeta):
         """
         if not media_type or not tmdb_id:
             return None
-        return MediaChain().recognize_media(tmdbid=tmdb_id, mtype=media_type)
+        return MediaChain().recognize_media(media_source=MediaSource.TMDB, media_id=tmdb_id, mtype=media_type)
 
     @abstractmethod
     def init_comp(self):
