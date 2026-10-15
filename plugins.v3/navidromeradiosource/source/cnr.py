@@ -71,8 +71,8 @@ class CnrSource(BaseSource):
         data = self.__check_and_get(res_json=res_json) or {}
         return self.__extract_radios(data=data)
 
-    @staticmethod
-    def __check_and_get(res_json: dict) -> Any:
+    @classmethod
+    def __check_and_get(cls, res_json: dict) -> Any:
         if not res_json:
             raise Exception("请求失败")
         code = res_json.get("code")
@@ -94,8 +94,8 @@ class CnrSource(BaseSource):
         radios = [radio for radio in radios if radio]
         return radios
 
-    @staticmethod
-    def __convert_radio(info: dict) -> Optional[Radio]:
+    @classmethod
+    def __convert_radio(cls, info: dict) -> Optional[Radio]:
         """
         转换广播信息
         """

@@ -90,8 +90,8 @@ class XmlySource(BaseSource):
         id = info.get("id")
         return Radio(name=name, stream_url=play_url, home_page_url=f"{cls.__base_url}/radio/{id}")
 
-    @staticmethod
-    def __check_and_get(res_json: dict) -> Any:
+    @classmethod
+    def __check_and_get(cls, res_json: dict) -> Any:
         if not res_json:
             raise Exception("请求失败")
         if res_json.get("ret") != 0:

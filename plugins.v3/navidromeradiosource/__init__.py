@@ -7,9 +7,8 @@ from app.sdk.logging import logger
 from app.sdk.plugin.base import _PluginBase
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from cachetools import TTLCache
 
-from .sources import BaseSource
+from .source import BaseSource
 
 
 # noinspection SpellCheckingInspection
