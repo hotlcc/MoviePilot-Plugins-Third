@@ -758,7 +758,11 @@ class LinkdingFavorites(Favorites):
             return None
         if not custom_tags and not auto_tags:
             return None
-        tags = {"影视", "TMDB"}
+        tags = {"影视"}
+        if media_info.media_source == MediaSource.TMDB:
+            tags.add(MediaSource.TMDB.name)
+        elif media_info.media_source == MediaSource.Douban:
+            tags.add("豆瓣")
         if custom_tags:
             tags.update(custom_tags)
         if auto_tags:
