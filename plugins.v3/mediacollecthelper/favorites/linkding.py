@@ -41,28 +41,27 @@ class LinkdingFavorites(Favorites):
     # 组件顺序
     comp_order: int = 1
 
-    # 私有属性
-    # 退出事件
-    __exit_event: ThreadEvent = ThreadEvent()
-
-    # 配置相关
+    # 类公共属性
     # 组件缺省配置
     __config_default: Dict[str, Any] = {
         # 记忆阈值
         "memory_threshold": 1000
     }
-
     # 媒体风格名称映射
     __media_genre_name_mappings = {
         "Sci-Fi & Fantasy": "科幻",
         "War & Politics": "战争"
     }
 
+    # 对象私有属性
+    # 退出事件
+    __exit_event: Optional[ThreadEvent] = None
+
     def init_comp(self):
         """
         初始化组件
         """
-        pass
+        self.__exit_event = ThreadEvent()
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         """
