@@ -4,6 +4,7 @@ on:
     paths:
       - 'package.json'
       - 'package.v2.json'
+      - 'package.v3.json'
   workflow_dispatch:
 
 permissions:
@@ -53,12 +54,14 @@ jobs:
 
               dir1="plugins/${plugin_id_lc}"
               dir2="plugins.v2/${plugin_id_lc}"
+              dir3="plugins.v3/${plugin_id_lc}"
               plugin_dir=""
               if [ -d "$dir1" ]; then plugin_dir="$dir1"; fi
               if [ -d "$dir2" ]; then plugin_dir="$dir2"; fi
+              if [ -d "$dir3" ]; then plugin_dir="$dir3"; fi
 
               if [ -z "$plugin_dir" ]; then
-                echo "WARN: directory for $plugin_id not found under plugins/ or plugins.v2/, skip."
+                echo "WARN: directory for $plugin_id not found under plugins/ or plugins.v2/ or plugins.v3/, skip."
                 continue
               fi
 
@@ -109,5 +112,6 @@ jobs:
 
           process_package "package.json"
           process_package "package.v2.json"
+          process_package "package.v3.json"
 
 
