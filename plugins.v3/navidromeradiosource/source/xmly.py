@@ -76,8 +76,7 @@ class XmlySource(BaseSource):
                 break
         return result
 
-    @classmethod
-    def __convert_radio(cls, info: dict) -> Optional[Radio]:
+    def __convert_radio(self, info: dict) -> Optional[Radio]:
         """
         转换广播信息
         """
@@ -88,7 +87,8 @@ class XmlySource(BaseSource):
         if not name or not play_url:
             return None
         id = info.get("id")
-        return Radio(name=name, stream_url=play_url, home_page_url=f"{cls.__base_url}/radio/{id}")
+        display_name = self.build_radio_display_name(raw_name=name)
+        return Radio(name=display_name, stream_url=play_url, home_page_url=f"{self.__base_url}/radio/{id}")
 
     @classmethod
     def __check_and_get(cls, res_json: dict) -> Any:

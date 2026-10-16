@@ -597,7 +597,12 @@ class NavidromeRadioSource(_PluginBase):
             comp_obj: BaseSource = self.__comp_objs.get(enable_source)
             if not comp_obj:
                 continue
-            result.extend(await comp_obj.get_radios())
+            try:
+                radios = await comp_obj.get_radios()
+            except Exception as e:
+                radios = []
+                logger.error(f"单个广播源获取广播失败: comp_name = {comp_obj.comp_name}, error = {str(e)}")
+            result.extend(radios)
         return result
 
     async def __refresh_radios(self, navidrome_client: NavidromeClient) -> None:

@@ -80,8 +80,7 @@ class CnrSource(BaseSource):
             raise Exception(res_json.get("message"))
         return res_json.get("data")
 
-    @classmethod
-    def __extract_radios(cls, data: dict) -> List[Radio]:
+    def __extract_radios(self, data: dict) -> List[Radio]:
         """
         提取广播信息列表
         """
@@ -90,12 +89,11 @@ class CnrSource(BaseSource):
         categories = data.get("categories") or []
         category = categories[0] if categories else {}
         detail = category.get("detail") or []
-        radios = [cls.__convert_radio(info=d) for d in detail if d]
+        radios = [self.__convert_radio(info=d) for d in detail if d]
         radios = [radio for radio in radios if radio]
         return radios
 
-    @classmethod
-    def __convert_radio(cls, info: dict) -> Optional[Radio]:
+    def __convert_radio(self, info: dict) -> Optional[Radio]:
         """
         转换广播信息
         """
@@ -106,4 +104,5 @@ class CnrSource(BaseSource):
         if not name or not other_info11_url:
             return None
         other_info8 = info.get("other_info8")
-        return Radio(name=name, stream_url=other_info11_url, home_page_url=other_info8)
+        display_name = self.build_radio_display_name(raw_name=name)
+        return Radio(name=display_name, stream_url=other_info11_url, home_page_url=other_info8)

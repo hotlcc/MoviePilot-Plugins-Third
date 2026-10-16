@@ -22,3 +22,9 @@ class BaseSource(metaclass=ABCMeta):
         获取广播信息
         """
         pass
+
+    def build_radio_display_name(self, raw_name: str) -> str:
+        """
+        构造广播显示名称
+        """
+        return f"[{self.comp_name}] {raw_name}"
