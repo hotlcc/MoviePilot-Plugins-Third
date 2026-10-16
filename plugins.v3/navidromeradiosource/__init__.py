@@ -64,6 +64,9 @@ class NavidromeRadioSource(_PluginBase):
         生效配置信息
         :param config: 配置信息字典
         """
+        if not self.__check_config(config=config):
+            logger.error("配置检查不通过")
+            return
         # 对象私有属性
         self.__config = config or {}
         self.__comp_objs = OrderedDict[str, BaseSource]()
@@ -189,7 +192,7 @@ class NavidromeRadioSource(_PluginBase):
                                 'title': config.name,
                                 'value': config.name,
                             } for config in navidrome_configs if config],
-                            'hint': '选择Navidrome服务器。'
+                            'hint': '选择Navidrome服务器。必选。'
                         }
                     }]
                 }, {
@@ -239,7 +242,7 @@ class NavidromeRadioSource(_PluginBase):
                                 'title': comp_obj.comp_name,
                                 'value': key,
                             } for key, comp_obj in self.__comp_objs.items() if key and comp_obj],
-                            'hint': '选择要启用的广播源。'
+                            'hint': '选择要启用的广播源。必选。'
                         }
                     }]
                 }]
@@ -325,6 +328,24 @@ class NavidromeRadioSource(_PluginBase):
         if config_value is None and use_default:
             config_value = config_default.get(config_key)
         return config_value
+
+    @classmethod
+    def __check_config(cls, config: dict) -> bool:
+        config = config or {}
+        result = True
+        if config.get("enable") is None:
+            logger.error("配置检查不通过：启用插件")
+            result = False
+        if config.get("run_once") is None:
+            logger.error("配置检查不通过：立即运行一次")
+            result = False
+        if not config.get("navidrome_server"):
+            logger.error("配置检查不通过：Navidrome服务器")
+            result = False
+        if not config.get("enable_sources"):
+            logger.error("配置检查不通过：Navidrome服务器")
+            result = False
+        return result
 
     @classmethod
     def __check_comp_type(cls, comp_type: type) -> bool:
