@@ -7,13 +7,14 @@ from ..model import Radio
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode
-class RadioSource(BaseSource):
+class RadioCnSource(BaseSource):
     """
     云听广播源
+    https://www.radio.cn/pc-portal/erji/radioStation.html
     """
 
     # 组件key
-    comp_key: str = "radio"
+    comp_key: str = "radio_cn"
     # 组件名称
     comp_name: str = "云听"
     # 组件顺序
