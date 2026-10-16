@@ -29,7 +29,7 @@ class NavidromeRadioSource(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.2"
+    plugin_version = "3.0.3"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -67,9 +67,7 @@ class NavidromeRadioSource(_PluginBase):
         生效配置信息
         :param config: 配置信息字典
         """
-        if not self.__check_config(config=config):
-            logger.error("配置检查不通过")
-            return
+        check_config = self.__check_config(config=config)
         # 对象私有属性
         self.__config = config or {}
         self.__comp_objs = OrderedDict[str, BaseSource]()
@@ -81,7 +79,8 @@ class NavidromeRadioSource(_PluginBase):
         # 修正配置
         self.__config = self.__fix_config(config=config)
         # 处理运行一次
-        self.__run_once()
+        if check_config:
+            self.__run_once()
 
     def get_state(self) -> bool:
         """
@@ -331,9 +330,8 @@ class NavidromeRadioSource(_PluginBase):
             config_value = config_default.get(config_key)
         return config_value
 
-    @classmethod
-    def __check_config(cls, config: dict) -> bool:
-        config = config or {}
+    def __check_config(self, config: dict) -> bool:
+        config = config or self.__config or {}
         result = True
         if config.get("enable") is None:
             logger.error("配置检查不通过：启用插件")
