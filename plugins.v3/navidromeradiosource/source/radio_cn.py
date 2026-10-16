@@ -50,6 +50,7 @@ class RadioCnSource(BaseSource):
         timestamp = str(int(datetime.now().timestamp() * 1000))
         sign = self.__sign(params=params, method="GET", timestamp=timestamp)
         headers = {
+            "equipmentid": "0000",
             "Timestamp": timestamp,
             "Sign": sign,
         }
