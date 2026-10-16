@@ -15,6 +15,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .model import Radio
+from .navidrome_client import NavidromeClient
 from .source import BaseSource
 
 
@@ -342,6 +343,9 @@ class NavidromeRadioSource(_PluginBase):
         if not config.get("navidrome_server"):
             logger.error("配置检查不通过：Navidrome服务器")
             result = False
+        if config.get("navidrome_username") and not config.get("navidrome_password"):
+            logger.error("配置检查不通过：配置Navidrome用户时必须配置对应的密码")
+            result = False
         if not config.get("enable_sources"):
             logger.error("配置检查不通过：Navidrome服务器")
             result = False
@@ -529,13 +533,16 @@ class NavidromeRadioSource(_PluginBase):
         """
         运行任务
         """
-        navidrome_server = self.__get_config_item(config_key="navidrome_server")
-        if not navidrome_server:
-            logger.warn("请选择Navidrome服务器")
+        navidrome_server_info = self.__get_navidrome_server_info() or {}
+        if not navidrome_server_info:
             return
-        navidrome_config = self.__get_navidrome_config(name=navidrome_server)
-        if not navidrome_config or navidrome_config.config:
-            logger.warn("选择的Navidrome服务器无效")
+        client = NavidromeClient(
+            base_url=navidrome_server_info.get("host"),
+            username=navidrome_server_info.get("username"),
+            password=navidrome_server_info.get("password"),
+        )
+        if not client.is_admin():
+            logger.error("请配置Navidrome管理员用户")
             return
 
     def __get_navidrome_configs(self) -> Optional[List[MediaServerConf]]:
@@ -548,6 +555,31 @@ class NavidromeRadioSource(_PluginBase):
 
     def __get_navidrome_config(self, name: str) -> Optional[MediaServerConf]:
         return self.__media_server_helper.get_config(name=name)
+
+    def __get_navidrome_server_info(self) -> Optional[Dict[str, str]]:
+        navidrome_server = self.__get_config_item(config_key="navidrome_server")
+        if not navidrome_server:
+            return None
+        navidrome_config = self.__get_navidrome_config(name=navidrome_server)
+        if not navidrome_config or not navidrome_config.config:
+            logger.warn("选择的Navidrome服务器配置无效")
+            return None
+
+        host = navidrome_config.config.get("host")
+        username = navidrome_config.config.get("username")
+        password = navidrome_config.config.get("password")
+        if not host or not username or not password:
+            logger.warn("选择的Navidrome服务器配置无效")
+            return None
+
+        navidrome_username = self.__get_config_item(config_key="navidrome_username")
+        navidrome_password = self.__get_config_item(config_key="navidrome_password")
+
+        return {
+            "host": host,
+            "username": navidrome_username if navidrome_username else username,
+            "password": navidrome_password if navidrome_username else password,
+        }
 
     async def get_radios(self) -> Optional[List[Radio]]:
         """
