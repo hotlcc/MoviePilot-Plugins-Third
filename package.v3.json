@@ -44,7 +44,7 @@
     "name": "Navidrome广播源",
     "description": "自动同步公开广播到Navidrome。",
     "labels": "媒体工具",
-    "version": "3.0.4",
+    "version": "3.0.5",
     "release": true,
     "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png",
     "author": "hotlcc",
@@ -52,6 +52,7 @@
     "v3": true,
     "system_version": ">=3.0.0",
     "history": {
+      "v3.0.5": "初始版本。",
       "v3.0.4": "初始版本。",
       "v3.0.3": "初始版本。",
       "v3.0.2": "初始版本。",

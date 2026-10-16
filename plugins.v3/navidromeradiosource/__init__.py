@@ -29,7 +29,7 @@ class NavidromeRadioSource(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.4"
+    plugin_version = "3.0.5"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -226,6 +226,7 @@ class NavidromeRadioSource(_PluginBase):
                         'component': 'VTextField',
                         'props': {
                             'model': 'navidrome_password',
+                            'type': 'password',
                             'label': 'Navidrome密码',
                             'placeholder': "",
                             'hint': "Navidrome密码。"
@@ -605,7 +606,7 @@ class NavidromeRadioSource(_PluginBase):
         exist_list = navidrome_client.radio().list() or []
         exist_name_info_map = {radio.get("name"): radio for radio in exist_list if radio}
         # 第三方广播信息
-        radio_infos: List[Radio] = asyncio.run(self.__get_radios()) or []
+        radio_infos: List[Radio] = await self.__get_radios() or []
         radio_names = [radio_info.name for radio_info in radio_infos if radio_info and radio_info.name]
         # 更新、添加
         for radio_info in radio_infos:
