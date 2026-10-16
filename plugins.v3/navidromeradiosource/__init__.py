@@ -29,7 +29,7 @@ class NavidromeRadioSource(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.5"
+    plugin_version = "3.0.6"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -540,7 +540,11 @@ class NavidromeRadioSource(_PluginBase):
             username=navidrome_server_info.get("username"),
             password=navidrome_server_info.get("password"),
         )
-        asyncio.run(self.__refresh_radios(navidrome_client=navidrome_client))
+        logger.info("刷新广播信息 - 开始")
+        try:
+            asyncio.run(self.__refresh_radios(navidrome_client=navidrome_client))
+        finally:
+            logger.info("刷新广播信息 - 完成")
 
     def __get_navidrome_configs(self) -> Optional[List[MediaServerConf]]:
         config_map = self.__media_server_helper.get_configs(include_disabled=True) or {}
@@ -608,14 +612,20 @@ class NavidromeRadioSource(_PluginBase):
         # 第三方广播信息
         radio_infos: List[Radio] = await self.__get_radios() or []
         radio_names = [radio_info.name for radio_info in radio_infos if radio_info and radio_info.name]
+
+        update_count = 0
+        add_count = 0
+        delete_count = 0
         # 更新、添加
         for radio_info in radio_infos:
             exist_info = exist_name_info_map.get(radio_info.name)
             if not exist_info:
                 navidrome_client.radio().add(name=radio_info.name, stream_url=radio_info.stream_url, home_page_url=radio_info.home_page_url)
+                add_count += 1
                 logger.debug(f"刷新广播 - 添加广播完成: name = {radio_info.name}")
             elif radio_info.stream_url != exist_info.get("streamUrl") or radio_info.home_page_url != exist_info.get("homePageUrl"):
                 navidrome_client.radio().update(id=exist_info.get("id"), name=radio_info.name, stream_url=radio_info.stream_url, home_page_url=radio_info.home_page_url)
+                update_count += 1
                 logger.debug(f"刷新广播 - 更新广播完成: name = {radio_info.name}")
         # 删除无效的
         for radio in exist_list:
@@ -627,7 +637,10 @@ class NavidromeRadioSource(_PluginBase):
             name = radio.get("name")
             if not name:
                 navidrome_client.radio().delete(id=id)
+                delete_count += 1
                 logger.debug(f"刷新广播 - 删除广播完成: id = {id}")
             elif name not in radio_names:
                 navidrome_client.radio().delete(id=id)
+                delete_count += 1
                 logger.debug(f"刷新广播 - 删除广播完成: name = {name}")
+        logger.info(f"刷新广播 - 成功: 更新数量 = {update_count}, 添加数量 = {add_count}, 删除数量 = {delete_count}")
