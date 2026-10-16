@@ -29,7 +29,7 @@ class NavidromeRadioSource(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.1"
+    plugin_version = "3.0.2"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -42,6 +42,9 @@ class NavidromeRadioSource(_PluginBase):
     auth_level = 1
 
     # 类公共属性
+    # 系统组件
+    # 媒体服务器
+    __media_server_helper = MediaServerHelper()
     # 插件缺省配置
     __config_default: Dict[str, Any] = {
         "cron": "0 3 * * *"
@@ -58,8 +61,6 @@ class NavidromeRadioSource(_PluginBase):
     __task_lock: Optional[RLock] = None
     # 退出事件
     __exit_event: Optional[ThreadEvent] = None
-    # 媒体服务器
-    __media_server_helper: Optional[MediaServerHelper] = None
 
     def init_plugin(self, config: dict = None):
         """
@@ -75,7 +76,6 @@ class NavidromeRadioSource(_PluginBase):
         self.__init_scheduler()
         self.__task_lock = RLock()
         self.__exit_event = ThreadEvent()
-        self.__media_server_helper = MediaServerHelper()
         # 注册组件
         self.__register_comp()
         # 修正配置
