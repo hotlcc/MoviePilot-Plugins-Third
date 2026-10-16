@@ -89,11 +89,14 @@ class RadioCnSource(BaseSource):
             return "&".join([f"{key}={params.get(key)}" for key in keys])
 
     @classmethod
-    def __md5_str(cls, raw_str: str) -> str:
+    def __md5_str(cls, raw_str: str, upper: bool = True) -> str:
         raw_str = raw_str or ""
         raw_data = raw_str.encode("utf-8")
         md5_obj = hashlib.md5(raw_data)
-        return md5_obj.hexdigest()
+        md5_str = md5_obj.hexdigest()
+        if upper:
+            md5_str = md5_str.upper()
+        return md5_str
 
     @classmethod
     def __sign(cls, method: str, params: dict, timestamp: str | int) -> str:
