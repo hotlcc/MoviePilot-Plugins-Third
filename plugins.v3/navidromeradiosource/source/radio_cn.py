@@ -35,11 +35,15 @@ class RadioCnSource(BaseSource):
         radios = [radio for radio in radios if radio]
         return radios
 
-    async def __list(self, category_id: int = 0, province_code: int = 0) -> dict:
+    async def __list(self, category_id: int = 0, province_code: int = 0) -> List[dict]:
         """
         """
-        url = f"{self.__base_url}/list?categoryId={category_id}&provinceCode={province_code}"
-        res_json = await self.__async_request_utils.get_json(url=url)
+        url = f"{self.__base_url}/list"
+        params = {
+            "categoryId": category_id,
+            "provinceCode": province_code,
+        }
+        res_json = await self.__async_request_utils.get_json(url=url, params=params)
         return self.__check_and_get(res_json=res_json) or []
 
     def __convert_radio(self, info: dict) -> Optional[Radio]:
