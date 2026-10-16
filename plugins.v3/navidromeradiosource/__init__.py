@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 from threading import RLock, Event as ThreadEvent
 from typing import Any, List, Dict, Tuple, Type, Optional, OrderedDict
@@ -19,7 +20,7 @@ from .navidrome_client import NavidromeClient
 from .source import BaseSource
 
 
-# noinspection SpellCheckingInspection,DuplicatedCode
+# noinspection SpellCheckingInspection,DuplicatedCode,PyShadowingNames
 class NavidromeRadioSource(_PluginBase):
     # 插件名称
     plugin_name = "Navidrome广播源"
@@ -536,14 +537,12 @@ class NavidromeRadioSource(_PluginBase):
         navidrome_server_info = self.__get_navidrome_server_info() or {}
         if not navidrome_server_info:
             return
-        client = NavidromeClient(
+        navidrome_client = NavidromeClient(
             base_url=navidrome_server_info.get("host"),
             username=navidrome_server_info.get("username"),
             password=navidrome_server_info.get("password"),
         )
-        if not client.is_admin():
-            logger.error("请配置Navidrome管理员用户")
-            return
+        asyncio.run(self.__refresh_radios(navidrome_client=navidrome_client))
 
     def __get_navidrome_configs(self) -> Optional[List[MediaServerConf]]:
         config_map = self.__media_server_helper.get_configs(include_disabled=True) or {}
@@ -581,7 +580,7 @@ class NavidromeRadioSource(_PluginBase):
             "password": navidrome_password if navidrome_username else password,
         }
 
-    async def get_radios(self) -> Optional[List[Radio]]:
+    async def __get_radios(self) -> Optional[List[Radio]]:
         """
         获取广播信息
         """
@@ -598,3 +597,39 @@ class NavidromeRadioSource(_PluginBase):
                 continue
             result.extend(await comp_obj.get_radios())
         return result
+
+    async def __refresh_radios(self, navidrome_client: NavidromeClient) -> None:
+        if not navidrome_client:
+            raise ValueError("参数错误[navidrome_client]")
+        if not navidrome_client.is_admin():
+            raise ValueError("请配置Navidrome管理员用户")
+
+        # 查询已经存在的全部电台
+        exist_list = navidrome_client.radio().list() or []
+        exist_name_info_map = {radio.get("name"): radio for radio in exist_list if radio}
+        # 第三方广播信息
+        radio_infos: List[Radio] = asyncio.run(self.__get_radios()) or []
+        radio_names = [radio_info.name for radio_info in radio_infos if radio_info and radio_info.name]
+        # 更新、添加
+        for radio_info in radio_infos:
+            exist_info = exist_name_info_map.get(radio_info.name)
+            if not exist_info:
+                navidrome_client.radio().add(name=radio_info.name, stream_url=radio_info.stream_url, home_page_url=radio_info.home_page_url)
+                logger.debug(f"刷新广播 - 添加广播完成: name = {radio_info.name}")
+            elif radio_info.stream_url != exist_info.get("streamUrl") or radio_info.home_page_url != exist_info.get("homePageUrl"):
+                navidrome_client.radio().update(id=exist_info.get("id"), name=radio_info.name, stream_url=radio_info.stream_url, home_page_url=radio_info.home_page_url)
+                logger.debug(f"刷新广播 - 更新广播完成: name = {radio_info.name}")
+        # 删除无效的
+        for radio in exist_list:
+            if not radio:
+                continue
+            id = radio.get("id")
+            if not id:
+                continue
+            name = radio.get("name")
+            if not name:
+                navidrome_client.radio().delete(id=id)
+                logger.debug(f"刷新广播 - 删除广播完成: id = {id}")
+            elif name not in radio_names:
+                navidrome_client.radio().delete(id=id)
+                logger.debug(f"刷新广播 - 删除广播完成: name = {name}")
