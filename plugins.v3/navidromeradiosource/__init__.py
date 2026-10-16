@@ -29,7 +29,7 @@ class NavidromeRadioSource(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.3"
+    plugin_version = "3.0.4"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -62,22 +62,27 @@ class NavidromeRadioSource(_PluginBase):
     # 退出事件
     __exit_event: Optional[ThreadEvent] = None
 
+    def __init__(self):
+        super().__init__()
+        # 对象私有属性
+        self.__comp_objs = OrderedDict[str, BaseSource]()
+        self.__task_lock = RLock()
+        self.__exit_event = ThreadEvent()
+
     def init_plugin(self, config: dict = None):
         """
         生效配置信息
         :param config: 配置信息字典
         """
-        check_config = self.__check_config(config=config)
         # 对象私有属性
         self.__config = config or {}
-        self.__comp_objs = OrderedDict[str, BaseSource]()
         self.__init_scheduler()
-        self.__task_lock = RLock()
-        self.__exit_event = ThreadEvent()
         # 注册组件
         self.__register_comp()
         # 修正配置
         self.__config = self.__fix_config(config=config)
+        # 检查配置
+        check_config = self.__check_config()
         # 处理运行一次
         if check_config:
             self.__run_once()
@@ -330,15 +335,9 @@ class NavidromeRadioSource(_PluginBase):
             config_value = config_default.get(config_key)
         return config_value
 
-    def __check_config(self, config: dict) -> bool:
+    def __check_config(self, config: dict = None) -> bool:
         config = config or self.__config or {}
         result = True
-        if config.get("enable") is None:
-            logger.error("配置检查不通过：启用插件")
-            result = False
-        if config.get("run_once") is None:
-            logger.error("配置检查不通过：立即运行一次")
-            result = False
         if not config.get("navidrome_server"):
             logger.error("配置检查不通过：Navidrome服务器")
             result = False
