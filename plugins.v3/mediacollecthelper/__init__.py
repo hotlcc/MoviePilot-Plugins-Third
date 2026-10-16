@@ -36,7 +36,7 @@ class MediaCollectHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png"
     # 插件版本
-    plugin_version = "3.0.7"
+    plugin_version = "3.0.8"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -49,6 +49,13 @@ class MediaCollectHelper(_PluginBase):
     auth_level = 1
 
     # 类公共属性
+    # 系统组件
+    # 媒体服务器操作
+    __media_server_oper: MediaServerOper = MediaServerOper()
+    # 订阅数据操作
+    __subscribe_oper: SubscribeOper = SubscribeOper()
+    # 订阅历史数据操作
+    __subscribe_history_oper: SubscribeHistoryOper = SubscribeHistoryOper()
     # 插件缺省配置
     __config_default: Dict[str, Any] = {
         "cron": "0 3 * * *"
@@ -65,12 +72,6 @@ class MediaCollectHelper(_PluginBase):
     __task_lock: Optional[RLock] = None
     # 退出事件
     __exit_event: Optional[ThreadEvent] = None
-    # 媒体服务器操作
-    __media_server_oper: Optional[MediaServerOper] = None
-    # 订阅数据操作
-    __subscribe_oper: Optional[SubscribeOper] = None
-    # 订阅历史数据操作
-    __subscribe_history_oper: Optional[SubscribeHistoryOper] = None
     # 原子缓存操作，用于处理短期内事件媒体相同的清空去重
     __atomic_cache: Optional[AtomicCache] = None
 
@@ -85,9 +86,6 @@ class MediaCollectHelper(_PluginBase):
         self.__init_scheduler()
         self.__task_lock = RLock()
         self.__exit_event = ThreadEvent()
-        self.__media_server_oper = MediaServerOper()
-        self.__subscribe_oper = SubscribeOper()
-        self.__subscribe_history_oper = SubscribeHistoryOper()
         self.__atomic_cache = AtomicCache(cache=TTLCache(maxsize=1000, ttl=60 * 5))
         # 注册收藏夹组件
         self.__register_comp()
@@ -559,8 +557,6 @@ class MediaCollectHelper(_PluginBase):
                 self.__comp_objs = None
             if self.__task_lock:
                 self.__task_lock = None
-            if self.__subscribe_oper:
-                self.__subscribe_oper = None
             if self.__exit_event:
                 self.__exit_event = None
             if self.__atomic_cache:

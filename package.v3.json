@@ -3,7 +3,7 @@
     "name": "影视收藏助手",
     "description": "自动收藏MP中的影视信息到其它介质。",
     "labels": "媒体工具",
-    "version": "3.0.7",
+    "version": "3.0.8",
     "release": true,
     "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/Favorites_A.png",
     "author": "hotlcc",
@@ -11,6 +11,7 @@
     "v3": true,
     "system_version": ">=3.0.0",
     "history": {
+      "v3.0.8": "适配V3。",
       "v3.0.7": "适配V3。",
       "v3.0.6": "适配V3。",
       "v3.0.5": "适配V3。",
