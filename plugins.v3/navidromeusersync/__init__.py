@@ -25,7 +25,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.3"
+    plugin_version = "3.0.4"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -239,25 +239,6 @@ class NavidromeUserSync(_PluginBase):
                             'hint': '点击展开分组账户配置窗口。'
                         }
                     }]
-                }, {
-                    'component': 'VCol',
-                    'props': {
-                        'cols': 12,
-                        'xxl': 12, 'xl': 12, 'lg': 12, 'md': 12, 'sm': 12, 'xs': 12
-                    },
-                    'content': [{
-                        'component': 'VAceEditor',
-                        'props': {
-                            'model': 'group_account_yml',
-                            'lang': 'yml',
-                            'theme': 'monokai',
-                            'placeholder': '分组账户配置',
-                            'options': {
-                                'showGutter': True,
-                                'showLineNumbers': True,
-                            }
-                        }
-                    }]
                 }]
             }, {
                 'component': 'VDialog',
@@ -286,16 +267,27 @@ class NavidromeUserSync(_PluginBase):
                                 'cols': 12
                             },
                             'content': [{
-                                'component': 'VAceEditor',
+                                'component': 'VTextarea',
                                 'props': {
-                                    'model': 'group_account_yml',
-                                    'lang': 'yml',
-                                    'theme': 'monokai',
-                                    'placeholder': '分组账户配置',
-                                    'options': {
-                                        'showGutter': True,
-                                        'showLineNumbers': True,
-                                    }
+                                    'model': 'group_account',
+                                    'label': '分组账户',
+                                    'placeholder': 'YML格式内容。支持配置1到N个分组，每个分组下至少配置2个账户，分组下的全部账户间相互同步。\n'
+                                                   '例如：\n'
+                                                   'groups:\n'
+                                                   '  - name: 分组1\n'
+                                                   '    accounts:\n'
+                                                   '      - username: 用户名11\n'
+                                                   '        password: 密码11\n'
+                                                   '      - username: 用户名12\n'
+                                                   '        password: 密码12\n'
+                                                   '  - name: 分组2\n'
+                                                   '    accounts:\n'
+                                                   '      - username: 用户名21\n'
+                                                   '        password: 密码21\n'
+                                                   '      - username: 用户名22\n'
+                                                   '        password: 密码22\n'
+                                                   '',
+                                    'hint': '分组账户。'
                                 }
                             }]
                         }]
