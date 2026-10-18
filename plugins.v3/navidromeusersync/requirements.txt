@@ -1,1 +1,2 @@
- sseclient-py~=1.9.0
+sseclient-py~=1.9.0
+pyyaml~=6.0.3

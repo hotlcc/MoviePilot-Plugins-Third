@@ -3,6 +3,7 @@ from threading import RLock, Event as ThreadEvent
 from typing import Any, List, Dict, Tuple, Optional
 
 import pytz
+import yaml
 from app.schemas.system import MediaServerConf
 from app.schemas.types import MediaServerType
 from app.sdk.config import settings
@@ -269,7 +270,7 @@ class NavidromeUserSync(_PluginBase):
                             'content': [{
                                 'component': 'VTextarea',
                                 'props': {
-                                    'model': 'group_account',
+                                    'model': 'group_accounts',
                                     'label': '分组账户',
                                     'placeholder': 'YML格式内容。支持配置1到N个分组，每个分组下至少配置2个账户，分组下的全部账户间相互同步。\n'
                                                    '例如：\n'
@@ -376,18 +377,21 @@ class NavidromeUserSync(_PluginBase):
             config_value = config_default.get(config_key)
         return config_value
 
-    def __check_config(self, config: dict = None) -> bool:
-        config = config or self.__config or {}
+    def __check_config(self) -> bool:
+        config = self.__config or {}
         result = True
         if not config.get("navidrome_server"):
             logger.error("配置检查不通过：Navidrome服务器")
             result = False
-        if config.get("navidrome_username") and not config.get("navidrome_password"):
-            logger.error("配置检查不通过：配置Navidrome用户时必须配置对应的密码")
+        if not config.get("sync_scopes"):
+            logger.error("配置检查不通过：同步范围")
             result = False
-        if not config.get("enable_sources"):
-            logger.error("配置检查不通过：Navidrome服务器")
+        group_accounts = config.get("group_accounts")
+        if not group_accounts:
+            logger.error("配置检查不通过：分组账户")
             result = False
+        else:
+            group_accounts_obj = yaml.safe_load(stream=group_accounts)
         return result
 
     def __run_once(self):
