@@ -25,7 +25,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.2"
+    plugin_version = "3.0.3"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -239,50 +239,69 @@ class NavidromeUserSync(_PluginBase):
                             'hint': '点击展开分组账户配置窗口。'
                         }
                     }]
-                }]
-            }, {
-                    'component': 'VDialog',
+                }, {
+                    'component': 'VCol',
                     'props': {
-                        'model': '_config_group_account_dialog_closed',
-                        'max-width': '40rem'
+                        'cols': 12,
+                        'xxl': 12, 'xl': 12, 'lg': 12, 'md': 12, 'sm': 12, 'xs': 12
                     },
                     'content': [{
-                        'component': 'VCard',
+                        'component': 'VAceEditor',
                         'props': {
-                            'title': '配置分组账户',
-                            'style': {
-                                'padding': '0 20px 20px 20px'
+                            'model': 'group_account_yml',
+                            'lang': 'yml',
+                            'theme': 'monokai',
+                            'placeholder': '分组账户配置',
+                            'options': {
+                                'showGutter': True,
+                                'showLineNumbers': True,
                             }
-                        },
+                        }
+                    }]
+                }]
+            }, {
+                'component': 'VDialog',
+                'props': {
+                    'model': '_config_group_account_dialog_closed',
+                    'max-width': '40rem'
+                },
+                'content': [{
+                    'component': 'VCard',
+                    'props': {
+                        'title': '配置分组账户',
+                        'style': {
+                            'padding': '0 20px 20px 20px'
+                        }
+                    },
+                    'content': [{
+                        'component': 'VDialogCloseBtn',
+                        'props': {
+                            'model': '_config_group_account_dialog_closed'
+                        }
+                    }, {
+                        'component': 'VRow',
                         'content': [{
-                            'component': 'VDialogCloseBtn',
+                            'component': 'VCol',
                             'props': {
-                                'model': '_config_group_account_dialog_closed'
-                            }
-                        }, {
-                            'component': 'VRow',
+                                'cols': 12
+                            },
                             'content': [{
-                                'component': 'VCol',
+                                'component': 'VAceEditor',
                                 'props': {
-                                    'cols': 12
-                                },
-                                'content': [{
-                                    'component': 'VAceEditor',
-                                    'props': {
-                                        'model': 'group_account_yml',
-                                        'lang': 'yml',
-                                        'theme': 'monokai',
-                                        'placeholder': '分组账户配置',
-                                        'options': {
-                                            'showGutter': True,
-                                            'showLineNumbers': True,
-                                        }
+                                    'model': 'group_account_yml',
+                                    'lang': 'yml',
+                                    'theme': 'monokai',
+                                    'placeholder': '分组账户配置',
+                                    'options': {
+                                        'showGutter': True,
+                                        'showLineNumbers': True,
                                     }
-                                }]
+                                }
                             }]
                         }]
                     }]
                 }]
+            }]
         }]
         return elements, config_suggest
 
