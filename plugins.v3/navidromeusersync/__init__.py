@@ -25,7 +25,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.1"
+    plugin_version = "3.0.2"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -241,8 +241,6 @@ class NavidromeUserSync(_PluginBase):
                     }]
                 }]
             }, {
-                'component': 'VRow',
-                'content': [{
                     'component': 'VDialog',
                     'props': {
                         'model': '_config_group_account_dialog_closed',
@@ -271,8 +269,9 @@ class NavidromeUserSync(_PluginBase):
                                 'content': [{
                                     'component': 'VAceEditor',
                                     'props': {
-                                        'model': 'group_account.yml',
-                                        'lang': 'yaml',
+                                        'model': 'group_account_yml',
+                                        'lang': 'yml',
+                                        'theme': 'monokai',
                                         'placeholder': '分组账户配置',
                                         'options': {
                                             'showGutter': True,
@@ -284,7 +283,6 @@ class NavidromeUserSync(_PluginBase):
                         }]
                     }]
                 }]
-            }]
         }]
         return elements, config_suggest
 
