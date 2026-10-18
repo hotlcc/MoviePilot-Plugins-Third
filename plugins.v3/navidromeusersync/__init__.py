@@ -21,7 +21,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件名称
     plugin_name = "Navidrome用户同步"
     # 插件描述
-    plugin_desc = "多用户间自动同步歌单与收藏。"
+    plugin_desc = "多用户间自动同步收藏与歌单。"
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
@@ -195,6 +195,20 @@ class NavidromeUserSync(_PluginBase):
                     'component': 'VCol',
                     'props': {
                         'cols': 12,
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VSwitch',
+                        'props': {
+                            'model': 'real_time_listen',
+                            'label': '实时监听',
+                            'hint': '监听Navidrome的事件并实时处理。'
+                        }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
                         'xxl': 8, 'xl': 8, 'lg': 8, 'md': 8, 'sm': 12, 'xs': 12
                     },
                     'content': [{
@@ -210,6 +224,64 @@ class NavidromeUserSync(_PluginBase):
                             } for scope in SyncScope if scope],
                             'hint': '选择要同步的范围。必选。'
                         }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VSwitch',
+                        'props': {
+                            'model': '_config_group_account_dialog_closed',
+                            'label': '配置分组账户',
+                            'hint': '点击展开分组账户配置窗口。'
+                        }
+                    }]
+                }]
+            }, {
+                'component': 'VRow',
+                'content': [{
+                    'component': 'VDialog',
+                    'props': {
+                        'model': '_config_group_account_dialog_closed',
+                        'max-width': '40rem'
+                    },
+                    'content': [{
+                        'component': 'VCard',
+                        'props': {
+                            'title': '配置分组账户',
+                            'style': {
+                                'padding': '0 20px 20px 20px'
+                            }
+                        },
+                        'content': [{
+                            'component': 'VDialogCloseBtn',
+                            'props': {
+                                'model': '_config_group_account_dialog_closed'
+                            }
+                        }, {
+                            'component': 'VRow',
+                            'content': [{
+                                'component': 'VCol',
+                                'props': {
+                                    'cols': 12
+                                },
+                                'content': [{
+                                    'component': 'VAceEditor',
+                                    'props': {
+                                        'model': 'group_account.yml',
+                                        'lang': 'yaml',
+                                        'placeholder': '分组账户配置',
+                                        'options': {
+                                            'showGutter': True,
+                                            'showLineNumbers': True,
+                                        }
+                                    }
+                                }]
+                            }]
+                        }]
                     }]
                 }]
             }]
