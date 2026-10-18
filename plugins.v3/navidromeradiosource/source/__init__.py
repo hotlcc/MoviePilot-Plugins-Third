@@ -6,7 +6,7 @@ from ..model import Radio
 
 class BaseSource(metaclass=ABCMeta):
     """
-    广播源组件基类
+    电台源组件基类
     """
 
     # 组件key：取组件类名去除Source后缀后的小写
@@ -19,12 +19,12 @@ class BaseSource(metaclass=ABCMeta):
     @abstractmethod
     async def get_radios(self) -> List[Radio]:
         """
-        获取广播信息
+        获取电台信息
         """
         pass
 
     def build_radio_display_name(self, raw_name: str) -> str:
         """
-        构造广播显示名称
+        构造电台显示名称
         """
         return f"[{self.comp_name}] {raw_name}"

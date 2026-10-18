@@ -12,7 +12,7 @@ from ..model import Radio
 # noinspection SpellCheckingInspection,DuplicatedCode
 class RadioCnSource(BaseSource):
     """
-    云听广播源
+    云听电台源
     https://www.radio.cn/pc-portal/erji/radioStation.html
     """
 
@@ -32,7 +32,7 @@ class RadioCnSource(BaseSource):
 
     async def get_radios(self) -> List[Radio]:
         """
-        获取全部广播信息列表
+        获取全部电台信息列表
         """
         infos = await self.__list() or []
         radios = [self.__convert_radio(info=info) for info in infos if info]
@@ -59,7 +59,7 @@ class RadioCnSource(BaseSource):
 
     def __convert_radio(self, info: dict) -> Optional[Radio]:
         """
-        转换广播信息
+        转换电台信息
         """
         info = info or {}
         name = info.get("title")

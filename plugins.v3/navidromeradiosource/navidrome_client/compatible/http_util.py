@@ -1,10 +1,6 @@
-"""
-HTTP工具
-"""
-
 import urllib.parse as parse
 
-from app.sdk.logging import logger
+from .log import logger
 
 
 def improve_url(base_url: str, req_url: str) -> str:
@@ -26,3 +22,8 @@ def improve_url(base_url: str, req_url: str) -> str:
     url = str(url)
     logger.debug(f"完善URL: 完善后的URL = {url}")
     return url
+
+
+__all__ = [
+    "improve_url",
+]

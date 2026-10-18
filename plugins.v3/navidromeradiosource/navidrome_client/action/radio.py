@@ -8,7 +8,7 @@ from typing import List
 from typing import Optional
 
 from .. import session
-from ..util import assert_util
+from ..compatible import assert_util
 
 
 # noinspection SpellCheckingInspection,PyPep8Naming,PyShadowingBuiltins,PyShadowingNames

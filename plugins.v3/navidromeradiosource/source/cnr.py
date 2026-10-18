@@ -8,7 +8,7 @@ from ..model import Radio
 
 class CnrSource(BaseSource):
     """
-    央广网广播源
+    央广网电台源
     """
 
     # 组件key
@@ -43,7 +43,7 @@ class CnrSource(BaseSource):
 
     async def __get_national_radios(self) -> List[Radio]:
         """
-        获取国家广播信息列表
+        获取国家电台信息列表
         """
         url = f"{self.__base_url}/national"
         res_json = await self.__async_request_utils.post_json(url=url, json={})
@@ -61,7 +61,7 @@ class CnrSource(BaseSource):
 
     async def __get_local_radios(self, local_id: str) -> List[Radio]:
         """
-        获取地方广播信息列表
+        获取地方电台信息列表
         """
         url = f"{self.__base_url}/local"
         body = {
@@ -82,7 +82,7 @@ class CnrSource(BaseSource):
 
     def __extract_radios(self, data: dict) -> List[Radio]:
         """
-        提取广播信息列表
+        提取电台信息列表
         """
         if not data:
             return []
@@ -95,7 +95,7 @@ class CnrSource(BaseSource):
 
     def __convert_radio(self, info: dict) -> Optional[Radio]:
         """
-        转换广播信息
+        转换电台信息
         """
         info = info or {}
         name = info.get("name")

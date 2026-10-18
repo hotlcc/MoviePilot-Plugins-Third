@@ -8,10 +8,11 @@ import os
 from . import session
 from .action import album
 from .action import artist
+from .action import events
 from .action import radio
 from .action import rest
 from .action import song
-from .util import assert_util
+from .compatible import assert_util
 
 ########################### 获取环境变量 ###########################
 # 基础URL
@@ -55,6 +56,7 @@ class NavidromeClient:
         self.__rest = rest.RestAction(session=self.__session)
         self.__album = album.AlbumAction(session=self.__session)
         self.__artist = artist.ArtistAction(session=self.__session)
+        self.__events = events.EventsAction(session=self.__session)
 
     def radio(self) -> radio.RadioAction:
         """
@@ -85,6 +87,12 @@ class NavidromeClient:
         艺人操作
         """
         return self.__artist
+
+    def events(self) -> events.EventsAction:
+        """
+        事件操作
+        """
+        return self.__events
 
     def is_admin(self) -> bool:
         return self.__session.is_admin

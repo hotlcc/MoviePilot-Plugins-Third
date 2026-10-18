@@ -9,7 +9,7 @@ from ..model import Radio
 # noinspection SpellCheckingInspection
 class XmlySource(BaseSource):
     """
-    喜马拉雅广播源
+    喜马拉雅电台源
     """
 
     # 组件key
@@ -26,7 +26,7 @@ class XmlySource(BaseSource):
 
     async def get_radios(self) -> List[Radio]:
         """
-        获取全部广播信息列表
+        获取全部电台信息列表
         """
         infos = await self.__search_list() or []
         radios = [self.__convert_radio(info=info) for info in infos if info]
@@ -78,7 +78,7 @@ class XmlySource(BaseSource):
 
     def __convert_radio(self, info: dict) -> Optional[Radio]:
         """
-        转换广播信息
+        转换电台信息
         """
         info = info or {}
         name = info.get("name")

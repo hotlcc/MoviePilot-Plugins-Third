@@ -4,7 +4,7 @@ Rest操作
 """
 
 from .. import session
-from ..util import assert_util
+from ..compatible import assert_util
 
 
 # noinspection SpellCheckingInspection,PyPep8Naming,PyShadowingBuiltins,PyShadowingNames

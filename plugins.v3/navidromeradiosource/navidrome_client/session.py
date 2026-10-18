@@ -7,8 +7,8 @@ from typing import Dict
 
 import requests.auth
 
-from .util import assert_util
-from .util import http_util
+from .compatible import assert_util
+from .compatible import http_util
 
 
 # noinspection SpellCheckingInspection,PyArgumentList
@@ -40,7 +40,6 @@ class NavidromeClientSession(requests.Session):
         self.__auth_login(username=username, password=password)
 
         # noinspection PyTypeChecker
-
     def __auth_login(self, username: str, password: str) -> dict:
         """
         登录
@@ -59,10 +58,8 @@ class NavidromeClientSession(requests.Session):
         self.__is_admin = res_json.get("isAdmin")
         return res_json
 
-    def request(self, method, url, headers: Dict[str, str] = None, *args, **kwargs):
-        """
-        改写请求
-        """
+    # noinspection PyAttributeOutsideInit
+    def request0(self, method, url, headers: Dict[str, str] = None, *args, **kwargs) -> requests.Response:
         url = http_util.improve_url(base_url=self.__base_url, req_url=url)
         headers = headers or {}
         if not url.endswith("/auth/login"):
@@ -70,6 +67,15 @@ class NavidromeClientSession(requests.Session):
                 self.__TOKEN_HEADER_NAME: f"Bearer {self.__token}"
             })
         res = super().request(method=method, url=url, headers=headers, *args, **kwargs)
+        res.raise_for_status()
+        return res
+
+    # noinspection PyAttributeOutsideInit
+    def request(self, method, url, headers: Dict[str, str] = None, *args, **kwargs):
+        """
+        改写请求
+        """
+        res = self.request0(method=method, url=url, headers=headers, *args, **kwargs)
         res_json = res.json()
         if not res.ok:
             raise Exception((res_json or {}).get("error", "请求失败"))
@@ -92,6 +98,14 @@ class NavidromeClientSession(requests.Session):
             "v": "1.8.0",
             "c": "NavidromeUI",
         })
+
+    @property
+    def base_url(self) -> str:
+        return self.__base_url
+
+    @property
+    def token(self) -> str:
+        return self.__token
 
     @property
     def is_admin(self) -> bool:

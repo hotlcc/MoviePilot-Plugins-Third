@@ -23,13 +23,13 @@ from .source import BaseSource
 # noinspection SpellCheckingInspection,DuplicatedCode,PyShadowingNames
 class NavidromeRadioSource(_PluginBase):
     # 插件名称
-    plugin_name = "Navidrome广播源"
+    plugin_name = "Navidrome电台源"
     # 插件描述
-    plugin_desc = "自动同步公开广播到Navidrome。"
+    plugin_desc = "自动同步公开电台到Navidrome。"
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.11"
+    plugin_version = "3.0.12"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -156,7 +156,7 @@ class NavidromeRadioSource(_PluginBase):
                     'component': 'VCol',
                     'props': {
                         'cols': 12,
-                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                        'xxl': 8, 'xl': 8, 'lg': 8, 'md': 8, 'sm': 6, 'xs': 12
                     },
                     'content': [{
                         'component': 'VSwitch',
@@ -164,21 +164,6 @@ class NavidromeRadioSource(_PluginBase):
                             'model': 'run_once',
                             'label': '立即运行一次',
                             'hint': '保存插件配置后是否立即触发一次插件任务运行'
-                        }
-                    }]
-                }, {
-                    'component': 'VCol',
-                    'props': {
-                        'cols': 12,
-                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
-                    },
-                    'content': [{
-                        'component': 'VTextField',
-                        'props': {
-                            'model': 'cron',
-                            'label': '定时周期',
-                            'placeholder': self.__config_default.get("cron"),
-                            'hint': f'设置插件任务执行周期。支持5位cron表达式，缺省时为：{self.__config_default.get("cron")}。'
                         }
                     }]
                 }, {
@@ -236,20 +221,35 @@ class NavidromeRadioSource(_PluginBase):
                     'component': 'VCol',
                     'props': {
                         'cols': 12,
-                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 12, 'xs': 12
+                        'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                    },
+                    'content': [{
+                        'component': 'VTextField',
+                        'props': {
+                            'model': 'cron',
+                            'label': '定时周期',
+                            'placeholder': self.__config_default.get("cron"),
+                            'hint': f'设置插件任务执行周期。支持5位cron表达式，缺省时为：{self.__config_default.get("cron")}。'
+                        }
+                    }]
+                }, {
+                    'component': 'VCol',
+                    'props': {
+                        'cols': 12,
+                        'xxl': 8, 'xl': 8, 'lg': 8, 'md': 8, 'sm': 12, 'xs': 12
                     },
                     'content': [{
                         'component': 'VSelect',
                         'props': {
                             'model': 'enable_sources',
-                            'label': '启用的广播源',
+                            'label': '启用的电台源',
                             'multiple': True,
                             'chips': True,
                             'items': [{
                                 'title': comp_obj.comp_name,
                                 'value': key,
                             } for key, comp_obj in self.__comp_objs.items() if key and comp_obj],
-                            'hint': '选择要启用的广播源。必选。'
+                            'hint': '选择要启用的电台源。必选。'
                         }
                     }]
                 }]
@@ -393,7 +393,7 @@ class NavidromeRadioSource(_PluginBase):
         )
         # 数量
         comp_count = len(comp_types) if comp_types else 0
-        logger.info(f"总共加载到{comp_count}个广播源组件")
+        logger.info(f"总共加载到{comp_count}个电台源组件")
         if not comp_types:
             return
         # 组件key缺省值处理
@@ -413,9 +413,9 @@ class NavidromeRadioSource(_PluginBase):
                     continue
                 comp_obj = comp_type()
                 self.__comp_objs[comp_key] = comp_obj
-                logger.info(f"注册广播源组件 - {comp_name} - 成功")
+                logger.info(f"注册电台源组件 - {comp_name} - 成功")
             except Exception as e:
-                logger.error(f"注册广播源组件 - {comp_name} - 异常: {str(e)}", exc_info=True)
+                logger.error(f"注册电台源组件 - {comp_name} - 异常: {str(e)}", exc_info=True)
 
     def __init_scheduler(self, timezone=None):
         """
@@ -540,11 +540,11 @@ class NavidromeRadioSource(_PluginBase):
             username=navidrome_server_info.get("username"),
             password=navidrome_server_info.get("password"),
         )
-        logger.info("刷新广播信息 - 开始")
+        logger.info("刷新电台信息 - 开始")
         try:
             asyncio.run(self.__refresh_radios(navidrome_client=navidrome_client))
         finally:
-            logger.info("刷新广播信息 - 完成")
+            logger.info("刷新电台信息 - 完成")
 
     def __get_navidrome_configs(self) -> Optional[List[MediaServerConf]]:
         config_map = self.__media_server_helper.get_configs(include_disabled=True) or {}
@@ -584,11 +584,11 @@ class NavidromeRadioSource(_PluginBase):
 
     async def __get_radios(self) -> Optional[List[Radio]]:
         """
-        获取广播信息
+        获取电台信息
         """
         enable_sources = self.__get_config_item(config_key="enable_sources") or []
         if not enable_sources:
-            logger.warn("请至少选择一个广播源")
+            logger.warn("请至少选择一个电台源")
             return None
         result: List[Radio] = []
         for enable_source in enable_sources:
@@ -601,7 +601,7 @@ class NavidromeRadioSource(_PluginBase):
                 radios = await comp_obj.get_radios()
             except Exception as e:
                 radios = []
-                logger.error(f"单个广播源获取广播失败: comp_name = {comp_obj.comp_name}, error = {str(e)}")
+                logger.error(f"单个电台源获取电台失败: comp_name = {comp_obj.comp_name}, error = {str(e)}")
             result.extend(radios)
         return result
 
@@ -614,7 +614,7 @@ class NavidromeRadioSource(_PluginBase):
         # 查询已经存在的全部电台
         exist_list = navidrome_client.radio().list() or []
         exist_name_info_map = {radio.get("name"): radio for radio in exist_list if radio}
-        # 第三方广播信息
+        # 第三方电台信息
         radio_infos: List[Radio] = await self.__get_radios() or []
         radio_names = [radio_info.name for radio_info in radio_infos if radio_info and radio_info.name]
 
@@ -627,11 +627,11 @@ class NavidromeRadioSource(_PluginBase):
             if not exist_info:
                 navidrome_client.radio().add(name=radio_info.name, stream_url=radio_info.stream_url, home_page_url=radio_info.home_page_url)
                 add_count += 1
-                logger.debug(f"刷新广播 - 添加广播完成: name = {radio_info.name}")
+                logger.debug(f"刷新电台 - 添加电台完成: name = {radio_info.name}")
             elif radio_info.stream_url != exist_info.get("streamUrl") or radio_info.home_page_url != exist_info.get("homePageUrl"):
                 navidrome_client.radio().update(id=exist_info.get("id"), name=radio_info.name, stream_url=radio_info.stream_url, home_page_url=radio_info.home_page_url)
                 update_count += 1
-                logger.debug(f"刷新广播 - 更新广播完成: name = {radio_info.name}")
+                logger.debug(f"刷新电台 - 更新电台完成: name = {radio_info.name}")
         # 删除无效的
         for radio in exist_list:
             if not radio:
@@ -643,9 +643,9 @@ class NavidromeRadioSource(_PluginBase):
             if not name:
                 navidrome_client.radio().delete(id=id)
                 delete_count += 1
-                logger.debug(f"刷新广播 - 删除广播完成: id = {id}")
+                logger.debug(f"刷新电台 - 删除电台完成: id = {id}")
             elif name not in radio_names:
                 navidrome_client.radio().delete(id=id)
                 delete_count += 1
-                logger.debug(f"刷新广播 - 删除广播完成: name = {name}")
-        logger.info(f"刷新广播 - 成功: 更新数量 = {update_count}, 添加数量 = {add_count}, 删除数量 = {delete_count}")
+                logger.debug(f"刷新电台 - 删除电台完成: name = {name}")
+        logger.info(f"刷新电台 - 成功: 更新数量 = {update_count}, 添加数量 = {add_count}, 删除数量 = {delete_count}")

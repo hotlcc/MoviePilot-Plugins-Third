@@ -5,7 +5,7 @@ from typing import Optional
 @dataclass
 class Radio:
     """
-    广播信息
+    电台信息
     """
 
     name: str  # 名称
