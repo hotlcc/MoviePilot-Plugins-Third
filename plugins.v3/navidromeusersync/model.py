@@ -15,7 +15,7 @@ class SyncScope(Enum):
 
 
 @dataclass
-class StarredInfo:
+class StarredDTO:
     id: str
     starred: bool
     starredAt: str  # 2026-10-18T11:42:24.020020694Z
