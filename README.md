@@ -19,4 +19,4 @@ MoviePilot第三方插件市场：[https://github.com/hotlcc/MoviePilot-Plugins-
 | 6  | 聚合消息通知         | [1.20.1](plugins/mergemessagenotify)  | ♻ 已兼容                                      | ♻ 已兼容                                        | 消息通知，一个插件就够了。       |
 | 7  | 订阅日历.ics       | [1.0.3](plugins/subscribecalendarics) | ♻ 已兼容                                      | ♻ 已兼容                                        | 提供ics订阅日历订阅链接。      |
 | 8  | Navidrome电台源   | ❌ 不支持                                 | ❌ 不支持                                      | [3.0.12](plugins.v3/navidromeradiosource)    | 自动同步公开广播到Navidrome。 |
-| 9  | Navidrome跨用户同步 | ❌ 不支持                                 | ❌ 不支持                                      | [3.1.0](plugins.v3/navidromeusersync)        | 多用户间自动同步收藏数据。       |
+| 9  | Navidrome跨用户同步 | ❌ 不支持                                 | ❌ 不支持                                      | [3.1.1](plugins.v3/navidromeusersync)        | 多用户间自动同步收藏数据。       |
