@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta
 from threading import RLock, Event as ThreadEvent
 from typing import Any, List, Dict, Tuple, Optional
@@ -16,6 +17,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .model import SyncScope
 from .navidrome_client import NavidromeClient
+from .navidrome_client.action import events
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode,PyShadowingNames
@@ -81,6 +83,8 @@ class NavidromeUserSync(_PluginBase):
             return
         # 初始化客户端
         self.__init_navidrome_clients()
+        # 启动客户端
+        asyncio.run(self.__start_navidrome_clients())
         self.__init_scheduler()
         # 处理运行一次
         self.__run_once()
@@ -343,8 +347,8 @@ class NavidromeUserSync(_PluginBase):
         try:
             logger.info('尝试停止插件服务...')
             self.__exit_event.set()
+            asyncio.run(self.__stop_navidrome_clients())
             self.__stop_scheduler()
-            self.__stop_navidrome_clients()
             self.__gc()
             logger.info('插件服务停止完成')
         except Exception as e:
@@ -519,14 +523,31 @@ class NavidromeUserSync(_PluginBase):
                 navidrome_clients[username] = navidrome_client
         self.__navidrome_clients = navidrome_clients
 
-    def __stop_navidrome_clients(self) -> None:
-        if not self.__navidrome_clients:
+    async def __start_navidrome_clients(self) -> None:
+        if not self.__get_config_item(config_key='real_time_listen'):
             return
-        navidrome_clients = self.__navidrome_clients or {}
-        for username, navidrome_client in navidrome_clients:
+        navidrome_clients: Dict[str, NavidromeClient] = self.__navidrome_clients or {}
+        if not navidrome_clients:
+            return
+        for username, navidrome_client in navidrome_clients.items():
             if not username or not navidrome_client:
                 continue
-            navidrome_client.events().stop_client()
+            navidrome_client.events().add_handler(
+                event_type=events.EventType.RefreshResource,
+                handler=lambda event_type, event_data: self.__on_refresh_resource_event(username=username, event_data=event_data),
+            )
+            await navidrome_client.events().start_listen()
+
+    async def __stop_navidrome_clients(self) -> None:
+        if not self.__get_config_item(config_key='real_time_listen'):
+            return
+        navidrome_clients: Dict[str, NavidromeClient] = self.__navidrome_clients or {}
+        if not navidrome_clients:
+            return
+        for username, navidrome_client in navidrome_clients.items():
+            if not username or not navidrome_client:
+                continue
+            await navidrome_client.events().stop_listen()
 
     def __gc(self):
         """
@@ -608,6 +629,9 @@ class NavidromeUserSync(_PluginBase):
         """
         运行任务
         """
+        pass
+
+    def __on_refresh_resource_event(self, username: str, event_data: Dict[str, Any]) -> None:
         pass
 
     def __get_navidrome_configs(self) -> Optional[List[MediaServerConf]]:
