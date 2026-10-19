@@ -547,6 +547,9 @@ class NavidromeUserSync(_PluginBase):
 
     async def __start_navidrome_clients(self) -> None:
         logger.info("启动Navidrome客户端 - 开始")
+        if not self.__get_config_item(config_key='enable'):
+            logger.warn("启动Navidrome客户端 - 终止: 原因 = 未启用插件")
+            return
         if not self.__get_config_item(config_key='real_time_listen'):
             logger.warn("启动Navidrome客户端 - 终止: 原因 = 未启用实时监听")
             return
@@ -568,6 +571,9 @@ class NavidromeUserSync(_PluginBase):
 
     async def __stop_navidrome_clients(self) -> None:
         logger.info("停止Navidrome客户端 - 开始")
+        if not self.__get_config_item(config_key='enable'):
+            logger.warn("停止Navidrome客户端 - 终止: 原因 = 未启用插件，无需停止")
+            return
         if not self.__get_config_item(config_key='real_time_listen'):
             logger.warn("停止Navidrome客户端 - 终止: 原因 = 未启用实时监听，无需停止")
             return
@@ -679,7 +685,7 @@ class NavidromeUserSync(_PluginBase):
     def __on_refresh_resource_event(self, username: str, event_data: Dict[str, Any]) -> None:
         if not username or not event_data:
             return
-        if not self.__get_config_item(config_key='real_time_listen'):
+        if not self.__get_config_item(config_key='enable') or not self.__get_config_item(config_key='real_time_listen'):
             return
         logger.info(f"收到事件: username = {username}, event_data = {event_data}")
 
