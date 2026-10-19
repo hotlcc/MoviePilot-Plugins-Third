@@ -9,7 +9,6 @@ from threading import RLock
 from typing import Dict, Any, Callable, TypeAlias, List, Optional, Coroutine, Union
 from urllib import parse
 
-from aiohttp import client_exceptions
 from aiohttp_sse_client2 import client as sse_client
 
 from .. import session as _session
@@ -110,26 +109,10 @@ class EventsAction:
                         await self.__on_message(event=event)
             except asyncio.CancelledError as e:
                 raise e
-            except ConnectionRefusedError as e:
-                logger.error(f"SSE连接错误: {e}")
-                strerror: str | bytes = e.strerror or ""
-                if type(strerror) == bytes:
-                    strerror = strerror.decode("utf-8")
-                if "Not authenticated" in strerror:
-                    await asyncio.sleep(10)
-                    self.__session.refresh_token()
-                else:
-                    raise e
-            except client_exceptions.ClientPayloadError as e:
-                logger.error(f"SSE连接错误: {e}")
-                if "Not enough data to satisfy transfer length header" in str(e):
-                    await asyncio.sleep(10)
-                    self.__session.refresh_token()
-                else:
-                    raise e
             except Exception as e:
                 logger.error(f"SSE连接错误: {e}")
-                raise e
+                await asyncio.sleep(30)
+                self.__session.refresh_token()
 
     # noinspection PyTypeChecker,PyProtectedMember
     async def start_listen(self) -> None:
