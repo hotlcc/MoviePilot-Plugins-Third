@@ -703,26 +703,37 @@ class NavidromeUserSync(_PluginBase):
     def __sync_data(self, usernames: List[str]):
         if not usernames:
             return
-        self.__sync_song_star(usernames=usernames)
+        usernames_str = ",".join(usernames)
+        logger.info(f"分组同步 - 开始: usernames = {usernames_str}")
 
-    def __sync_song_star(self, usernames: List[str]):
-        """
-        同步歌曲收藏
-        """
-        if not usernames:
-            return
-        sync_scopes = self.__get_config_item(config_key='sync_scopes') or []
-        if not sync_scopes or SyncScope.SongStar.name not in sync_scopes:
-            return
-        user_data_map: Dict[str, List[StarredDTO]] = {}
-        for username in usernames:
-            if not username:
-                continue
-            navidrome_client = self.__navidrome_clients.get(username)
-            if not navidrome_client:
-                continue
-            user_data_map[username] = self.__convert_dict_list_to_starred_dto_list(data_list=navidrome_client.song().list())
+        try:
+            logger.info(f"分组同步 - 歌曲收藏 - 开始: usernames = {usernames_str}")
+            self.__sync_song_star(usernames=usernames)
+            logger.info(f"分组同步 - 歌曲收藏 - 完成: usernames = {usernames_str}")
+        except Exception as e:
+            logger.error(f"分组同步 - 歌曲收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+        try:
+            logger.info(f"分组同步 - 专辑收藏 - 开始: usernames = {usernames_str}")
+            self.__sync_album_star(usernames=usernames)
+            logger.info(f"分组同步 - 专辑收藏 - 完成: usernames = {usernames_str}")
+        except Exception as e:
+            logger.error(f"分组同步 - 专辑收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+        try:
+            logger.info(f"分组同步 - 艺人收藏 - 开始: usernames = {usernames_str}")
+            self.__sync_artist_star(usernames=usernames)
+            logger.info(f"分组同步 - 艺人收藏 - 完成: usernames = {usernames_str}")
+        except Exception as e:
+            logger.error(f"分组同步 - 艺人收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+        logger.info(f"分组同步 - 完成: usernames = {usernames_str}")
+
+    @classmethod
+    def __merge_latest_version(cls, user_data_map: Dict[str, List[StarredDTO]]) -> Dict[str, StarredDTO]:
         latest_version_map: Dict[str, StarredDTO] = {}
+        if not user_data_map:
+            return latest_version_map
         for dto_list in user_data_map.values():
             if not dto_list:
                 continue
@@ -734,24 +745,144 @@ class NavidromeUserSync(_PluginBase):
                     latest_version_map[dto.id] = dto
                 else:
                     latest_version_map[dto.id] = dto.marge_latest_version(other=existing_dto)
+        return latest_version_map
+
+    def __batch_update_star_for_user(self,
+                                     sync_scope: SyncScope,
+                                     username: str,
+                                     user_data_map: Dict[str, List[StarredDTO]],
+                                     latest_version_map: Dict[str, StarredDTO]) -> None:
+        if not sync_scope or not username or not user_data_map or not latest_version_map:
+            return
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 单个用户 - 开始: username = {username}")
+        user_dto_list = user_data_map.get(username)
+        if not user_dto_list:
+            logger.warn(f"分组同步 - {sync_scope.value} - 执行同步 - 单个用户 - 终止: username = {username}, 原因 = 用户无数据")
+            return
+        navidrome_client = self.__navidrome_clients.get(username)
+        if not navidrome_client:
+            logger.warn(f"分组同步 - {sync_scope.value} - 执行同步 - 单个用户 - 终止: username = {username}, 原因 = 用户客户端不存在")
+            return
+        for user_dto in user_dto_list:
+            if not user_dto or not user_dto.id:
+                continue
+            latest_version_dto = latest_version_map.get(user_dto.id)
+            if not latest_version_dto:
+                continue
+            if (user_dto.starred or False) == (latest_version_dto.starred or False):
+                continue
+            if latest_version_dto.starred:
+                navidrome_client.rest().star(id=user_dto.id)
+                logger.debug(f"分组同步 - {sync_scope.value} - 执行同步 - 单个用户 - 添加收藏: username = {username}, id = {user_dto.id}")
+            else:
+                navidrome_client.rest().unstar(id=user_dto.id)
+                logger.debug(f"分组同步 - {sync_scope.value} - 执行同步 - 单个用户 - 取消收藏: username = {username}, id = {user_dto.id}")
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 单个用户 - 完成: username = {username}")
+
+    def __sync_song_star(self, usernames: List[str]):
+        """
+        同步歌曲收藏
+        """
+        if not usernames:
+            return
+        usernames_str = ",".join(usernames)
+
+        sync_scope = SyncScope.SongStar
+        sync_scopes = self.__get_config_item(config_key='sync_scopes') or []
+        if not sync_scopes or sync_scope.name not in sync_scopes:
+            logger.warn(f"分组同步 - {sync_scope.value} - 终止: usernames = {usernames_str}, 原因 = 不含该同步范围")
+            return
+
+        logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 开始: usernames = {usernames_str}")
+        user_data_map: Dict[str, List[StarredDTO]] = {}
         for username in usernames:
             if not username:
-                continue
-            user_dto_list = user_data_map.get(username)
-            if not user_dto_list:
                 continue
             navidrome_client = self.__navidrome_clients.get(username)
             if not navidrome_client:
                 continue
-            for user_dto in user_dto_list:
-                if not user_dto or not user_dto.id:
-                    continue
-                latest_version_dto = latest_version_map.get(user_dto.id)
-                if not latest_version_dto:
-                    continue
-                if (user_dto.starred or False) == (latest_version_dto.starred or False):
-                    continue
-                if latest_version_dto.starred:
-                    navidrome_client.rest().star(id=user_dto.id)
-                else:
-                    navidrome_client.rest().unstar(id=user_dto.id)
+            user_data_list = self.__convert_dict_list_to_starred_dto_list(data_list=navidrome_client.song().list()) or []
+            user_data_map[username] = user_data_list
+            logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 单个用户完成: username = {username}, num = {len(user_data_list)}")
+        logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 完成: usernames = {usernames_str}")
+
+        logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 开始: usernames = {usernames_str}")
+        latest_version_map: Dict[str, StarredDTO] = self.__merge_latest_version(user_data_map=user_data_map)
+        logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 完成: usernames = {usernames_str}, num = {len(latest_version_map)}")
+
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 开始: usernames = {usernames_str}")
+        for username in usernames:
+            self.__batch_update_star_for_user(sync_scope=sync_scope, username=username, user_data_map=user_data_map, latest_version_map=latest_version_map)
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 完成: usernames = {usernames_str}")
+
+    def __sync_album_star(self, usernames: List[str]):
+        """
+        同步专辑收藏
+        """
+        if not usernames:
+            return
+        usernames_str = ",".join(usernames)
+
+        sync_scope = SyncScope.AlbumStar
+        sync_scopes = self.__get_config_item(config_key='sync_scopes') or []
+        if not sync_scopes or sync_scope.name not in sync_scopes:
+            logger.warn(f"分组同步 - {sync_scope.value} - 终止: usernames = {usernames_str}, 原因 = 不含该同步范围")
+            return
+
+        logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 开始: usernames = {usernames_str}")
+        user_data_map: Dict[str, List[StarredDTO]] = {}
+        for username in usernames:
+            if not username:
+                continue
+            navidrome_client = self.__navidrome_clients.get(username)
+            if not navidrome_client:
+                continue
+            user_data_list = self.__convert_dict_list_to_starred_dto_list(data_list=navidrome_client.album().list()) or []
+            user_data_map[username] = user_data_list
+            logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 单个用户完成: username = {username}, num = {len(user_data_list)}")
+        logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 完成: usernames = {usernames_str}")
+
+        logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 开始: usernames = {usernames_str}")
+        latest_version_map: Dict[str, StarredDTO] = self.__merge_latest_version(user_data_map=user_data_map)
+        logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 完成: usernames = {usernames_str}, num = {len(latest_version_map)}")
+
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 开始: usernames = {usernames_str}")
+        for username in usernames:
+            self.__batch_update_star_for_user(sync_scope=sync_scope, username=username, user_data_map=user_data_map, latest_version_map=latest_version_map)
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 完成: usernames = {usernames_str}")
+
+    def __sync_artist_star(self, usernames: List[str]):
+        """
+        同步艺人收藏
+        """
+        if not usernames:
+            return
+        usernames_str = ",".join(usernames)
+
+        sync_scope = SyncScope.ArtistStar
+        sync_scopes = self.__get_config_item(config_key='sync_scopes') or []
+        if not sync_scopes or sync_scope.name not in sync_scopes:
+            logger.warn(f"分组同步 - {sync_scope.value} - 终止: usernames = {usernames_str}, 原因 = 不含该同步范围")
+            return
+
+        logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 开始: usernames = {usernames_str}")
+        user_data_map: Dict[str, List[StarredDTO]] = {}
+        for username in usernames:
+            if not username:
+                continue
+            navidrome_client = self.__navidrome_clients.get(username)
+            if not navidrome_client:
+                continue
+            user_data_list = self.__convert_dict_list_to_starred_dto_list(data_list=navidrome_client.artist().list()) or []
+            user_data_map[username] = user_data_list
+            logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 单个用户完成: username = {username}, num = {len(user_data_list)}")
+        logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 完成: usernames = {usernames_str}")
+
+        logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 开始: usernames = {usernames_str}")
+        latest_version_map: Dict[str, StarredDTO] = self.__merge_latest_version(user_data_map=user_data_map)
+        logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 完成: usernames = {usernames_str}, num = {len(latest_version_map)}")
+
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 开始: usernames = {usernames_str}")
+        for username in usernames:
+            self.__batch_update_star_for_user(sync_scope=sync_scope, username=username, user_data_map=user_data_map, latest_version_map=latest_version_map)
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 完成: usernames = {usernames_str}")
