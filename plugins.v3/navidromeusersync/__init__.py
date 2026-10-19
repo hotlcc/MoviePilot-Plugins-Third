@@ -29,7 +29,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.9"
+    plugin_version = "3.0.10"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -76,10 +76,14 @@ class NavidromeUserSync(_PluginBase):
         """
         # 对象私有属性
         # 配置
-        self.__config = self.__fix_config(config=config)
+        config = self.__fix_config(config=config)
+        self.__config = config
         # 检查配置
         check_config = self.__check_config()
         if not check_config:
+            # 关闭
+            config['enable'] = False
+            self.update_config(config=config)
             return
         else:
             logger.info("配置检查通过")
@@ -395,6 +399,10 @@ class NavidromeUserSync(_PluginBase):
         if not self.__get_config_item("navidrome_server"):
             logger.error("配置检查不通过：Navidrome服务器")
             result = False
+        navidrome_server_info = self.__get_navidrome_server_info() or {}
+        if not navidrome_server_info:
+            logger.error("配置检查不通过：系统配置的Navidrome服务器不存在或有误")
+            result = False
         if not self.__get_config_item("sync_scopes"):
             logger.error("配置检查不通过：同步范围")
             result = False
@@ -516,7 +524,7 @@ class NavidromeUserSync(_PluginBase):
     def __init_navidrome_clients(self) -> None:
         navidrome_server_info = self.__get_navidrome_server_info() or {}
         if not navidrome_server_info:
-            raise Exception("Navidrome服务器配置无效")
+            raise Exception("Navidrome服务器配置无效，请前往系统配置检查")
         host = navidrome_server_info.get("host")
 
         navidrome_clients: Dict[str, NavidromeClient] = {}
@@ -659,6 +667,7 @@ class NavidromeUserSync(_PluginBase):
             return
         if not self.__get_config_item(config_key='real_time_listen'):
             return
+        logger.info(f"收到事件: username = {username}, event_data = {event_data}")
 
     @classmethod
     def __convert_dict_to_starred_dto(cls, data: Dict[str, Any]) -> Optional[StarredDTO]:
