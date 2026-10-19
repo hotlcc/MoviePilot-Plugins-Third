@@ -30,7 +30,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.1.5"
+    plugin_version = "3.1.6"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -203,7 +203,7 @@ class NavidromeUserSync(_PluginBase):
                         'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
                     },
                     'content': [{
-                        'component': 'VTextField',
+                        'component': 'VCronField',
                         'props': {
                             'model': 'cron',
                             'label': '定时周期',
