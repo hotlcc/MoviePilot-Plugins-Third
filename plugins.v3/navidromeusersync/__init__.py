@@ -29,7 +29,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.8"
+    plugin_version = "3.0.9"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -726,6 +726,13 @@ class NavidromeUserSync(_PluginBase):
             logger.info(f"分组同步 - 艺人收藏 - 完成: usernames = {usernames_str}")
         except Exception as e:
             logger.error(f"分组同步 - 艺人收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+        try:
+            logger.info(f"分组同步 - 公开歌单收藏 - 开始: usernames = {usernames_str}")
+            self.__sync_public_playlist_star(usernames=usernames)
+            logger.info(f"分组同步 - 公开歌单收藏 - 完成: usernames = {usernames_str}")
+        except Exception as e:
+            logger.error(f"分组同步 - 公开歌单收藏 - 失败: usernames = {usernames_str}, error = {e}")
 
         logger.info(f"分组同步 - 完成: usernames = {usernames_str}")
 
