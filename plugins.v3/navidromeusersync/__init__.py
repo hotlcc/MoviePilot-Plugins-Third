@@ -29,7 +29,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.10"
+    plugin_version = "3.0.11"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -527,6 +527,7 @@ class NavidromeUserSync(_PluginBase):
             raise Exception("Navidrome服务器配置无效，请前往系统配置检查")
         host = navidrome_server_info.get("host")
 
+        logger.info("初始化Navidrome客户端 - 开始")
         navidrome_clients: Dict[str, NavidromeClient] = {}
         group_account_map: Dict[str, Dict[str, Dict[str, Any]]] = self.__group_account_map or {}
         for group_name, account_map in group_account_map.items():
@@ -540,33 +541,46 @@ class NavidromeUserSync(_PluginBase):
                     continue
                 navidrome_client = NavidromeClient(base_url=host, username=username, password=password)
                 navidrome_clients[username] = navidrome_client
+                logger.info(f"初始化Navidrome客户端 - 单个账户 - 完成: group_name = {group_name}, username = {username}")
         self.__navidrome_clients = navidrome_clients
+        logger.info("初始化Navidrome客户端 - 完成")
 
     async def __start_navidrome_clients(self) -> None:
+        logger.info("启动Navidrome客户端 - 开始")
         if not self.__get_config_item(config_key='real_time_listen'):
+            logger.warn("启动Navidrome客户端 - 终止: 原因 = 未启用实时监听")
             return
         navidrome_clients: Dict[str, NavidromeClient] = self.__navidrome_clients or {}
         if not navidrome_clients:
+            logger.warn("启动Navidrome客户端 - 终止: 原因 = 不存在已初始化的客户端")
             return
         for username, navidrome_client in navidrome_clients.items():
             if not username or not navidrome_client:
+                logger.warn(f"启动Navidrome客户端 - 单个账户 - 终止: username = {username}, 原因 = 不存在已初始化的客户端")
                 continue
             navidrome_client.events().add_handler(
                 event_type=events.EventType.RefreshResource,
                 handler=lambda event_type, event_data: self.__on_refresh_resource_event(username=username, event_data=event_data),
             )
             await navidrome_client.events().start_listen()
+            logger.info(f"启动Navidrome客户端 - 单个账户 - 完成: username = {username}")
+        logger.info("启动Navidrome客户端 - 完成")
 
     async def __stop_navidrome_clients(self) -> None:
+        logger.info("停止Navidrome客户端 - 开始")
         if not self.__get_config_item(config_key='real_time_listen'):
+            logger.warn("停止Navidrome客户端 - 终止: 原因 = 未启用实时监听，无需停止")
             return
         navidrome_clients: Dict[str, NavidromeClient] = self.__navidrome_clients or {}
         if not navidrome_clients:
+            logger.warn("停止Navidrome客户端 - 终止: 原因 = 不存在已初始化的客户端")
             return
         for username, navidrome_client in navidrome_clients.items():
             if not username or not navidrome_client:
+                logger.warn(f"停止Navidrome客户端 - 单个账户 - 终止: username = {username}, 原因 = 不存在已初始化的客户端")
                 continue
             await navidrome_client.events().stop_listen()
+        logger.info("停止Navidrome客户端 - 完成")
 
     def __gc(self):
         """
