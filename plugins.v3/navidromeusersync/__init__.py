@@ -29,7 +29,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.7"
+    plugin_version = "3.0.8"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -874,6 +874,42 @@ class NavidromeUserSync(_PluginBase):
             if not navidrome_client:
                 continue
             user_data_list = self.__convert_dict_list_to_starred_dto_list(data_list=navidrome_client.artist().list()) or []
+            user_data_map[username] = user_data_list
+            logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 单个用户完成: username = {username}, num = {len(user_data_list)}")
+        logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 完成: usernames = {usernames_str}")
+
+        logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 开始: usernames = {usernames_str}")
+        latest_version_map: Dict[str, StarredDTO] = self.__merge_latest_version(user_data_map=user_data_map)
+        logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 完成: usernames = {usernames_str}, num = {len(latest_version_map)}")
+
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 开始: usernames = {usernames_str}")
+        for username in usernames:
+            self.__batch_update_star_for_user(sync_scope=sync_scope, username=username, user_data_map=user_data_map, latest_version_map=latest_version_map)
+        logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 完成: usernames = {usernames_str}")
+
+    def __sync_public_playlist_star(self, usernames: List[str]):
+        """
+        同步公开歌单收藏
+        """
+        if not usernames:
+            return
+        usernames_str = ",".join(usernames)
+
+        sync_scope = SyncScope.PublicPlaylistStar
+        sync_scopes = self.__get_config_item(config_key='sync_scopes') or []
+        if not sync_scopes or sync_scope.name not in sync_scopes:
+            logger.warn(f"分组同步 - {sync_scope.value} - 终止: usernames = {usernames_str}, 原因 = 不含该同步范围")
+            return
+
+        logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 开始: usernames = {usernames_str}")
+        user_data_map: Dict[str, List[StarredDTO]] = {}
+        for username in usernames:
+            if not username:
+                continue
+            navidrome_client = self.__navidrome_clients.get(username)
+            if not navidrome_client:
+                continue
+            user_data_list = self.__convert_dict_list_to_starred_dto_list(data_list=navidrome_client.playlist().list(public=True)) or []
             user_data_map[username] = user_data_list
             logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 单个用户完成: username = {username}, num = {len(user_data_list)}")
         logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 完成: usernames = {usernames_str}")

@@ -31,23 +31,28 @@ class PlaylistAction:
 
     def page(self, _start: int = 0, _end: int = 15,
              _sort: str = "name", _order: str = "ASC",
+             public: bool = None,
              starred: bool = None) -> List[dict]:
         """
         分页查询
         """
+        if public is not None:
+            public = 1 if public else 0
         params = {
             "_start": _start, "_end": _end,
             "_sort": _sort, "_order": _order,
+            "public": public,
             "starred": starred,
         }
         return self.__session.get(url=self.__BASE_PATH, params=params) or []
 
     def list(self, _sort: str = "title", _order: str = "ASC",
+             public: bool = None,
              starred: bool = None) -> List[dict]:
         """
         列表查询
         """
-        return self.page(_end=sys.maxsize, _sort=_sort, _order=_order, starred=starred)
+        return self.page(_end=sys.maxsize, _sort=_sort, _order=_order, public=public, starred=starred)
 
     def add(self, name: str, comment: str = None, public: bool = True) -> str:
         """
