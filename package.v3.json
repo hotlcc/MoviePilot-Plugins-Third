@@ -60,7 +60,7 @@
     "name": "Navidrome跨用户同步",
     "description": "多用户间自动同步收藏数据。",
     "labels": "媒体工具",
-    "version": "3.1.1",
+    "version": "3.1.2",
     "release": true,
     "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png",
     "author": "hotlcc",
@@ -68,7 +68,7 @@
     "v3": true,
     "system_version": ">=3.0.0",
     "history": {
-      "v3.1.1": "初始版本。"
+      "v3.1.2": "初始版本。"
     }
   }
 }

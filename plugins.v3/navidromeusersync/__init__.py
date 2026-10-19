@@ -30,7 +30,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.1.1"
+    plugin_version = "3.1.2"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -466,6 +466,7 @@ class NavidromeUserSync(_PluginBase):
                         continue
                     username = account.get("username")
                     username = str(username) if username else ""
+                    account["username"] = username
                     if not username:
                         logger.error(f"配置检查不通过：分组账户.{account_path}.username")
                         result = False
@@ -476,6 +477,7 @@ class NavidromeUserSync(_PluginBase):
                         account_map[username] = account
                     password = account.get("password")
                     password = str(password) if password else ""
+                    account["password"] = password
                     if not password:
                         logger.error(f"配置检查不通过：分组账户.{account_path}.password")
                         result = False
