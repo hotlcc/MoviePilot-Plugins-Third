@@ -81,6 +81,8 @@ class NavidromeUserSync(_PluginBase):
         check_config = self.__check_config()
         if not check_config:
             return
+        else:
+            logger.info("配置检查通过")
         # 初始化客户端
         self.__init_navidrome_clients()
         # 启动客户端
@@ -400,9 +402,18 @@ class NavidromeUserSync(_PluginBase):
             result = False
         return result
 
+    @classmethod
+    def __load_yml(cls, content: str) -> Dict[str, Any]:
+        if not content:
+            return {}
+        obj = yaml.safe_load(stream=content)
+        if not obj or type(obj) is not dict:
+            return {}
+        return obj
+
     def __check_group_accounts(self) -> bool:
         group_accounts = self.__get_config_item("group_accounts") or ""
-        group_accounts_obj = yaml.safe_load(stream=group_accounts) or {}
+        group_accounts_obj = self.__load_yml(content=group_accounts)
         if not group_accounts_obj:
             logger.error("配置检查不通过：分组账户")
             return False
