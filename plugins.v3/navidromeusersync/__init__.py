@@ -30,7 +30,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.16"
+    plugin_version = "3.0.17"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -75,6 +75,7 @@ class NavidromeUserSync(_PluginBase):
         生效配置信息
         :param config: 配置信息字典
         """
+        self.stop_service()
         # 对象私有属性
         # 配置
         config = self.__fix_config(config=config)
@@ -356,10 +357,11 @@ class NavidromeUserSync(_PluginBase):
             self.__exit_event.set()
             asyncio.run(self.__stop_navidrome_clients())
             self.__stop_scheduler()
-            self.__gc()
             logger.info('插件服务停止完成')
         except Exception as e:
             logger.error(f"插件服务停止异常: {str(e)}", exc_info=True)
+        finally:
+            self.__exit_event.clear()
 
     @classmethod
     def __fix_config(cls, config: dict) -> Optional[dict]:
@@ -610,20 +612,6 @@ class NavidromeUserSync(_PluginBase):
             await navidrome_client.events().stop_listen()
         logger.info("停止Navidrome客户端 - 完成")
 
-    def __gc(self):
-        """
-        回收内存
-        """
-        try:
-            logger.info('尝试回收内存...')
-            if self.__task_lock:
-                self.__task_lock = None
-            if self.__exit_event:
-                self.__exit_event = None
-            logger.info('回收内存成功')
-        except Exception as e:
-            logger.error(f"回收内存异常: {str(e)}", exc_info=True)
-
     def __try_run(self):
         """
         尝试运行插件任务
@@ -712,7 +700,7 @@ class NavidromeUserSync(_PluginBase):
 
         if not self.__get_config_item(config_key='enable') or not self.__get_config_item(config_key='real_time_listen'):
             logger.warn(f"带锁处理刷新资源事件 - 终止: 原因 = 插件开关或实时监听开关未打开")
-            # return  # TODO
+            return
 
         try:
             self.__task_lock.acquire()

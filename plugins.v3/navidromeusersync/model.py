@@ -13,7 +13,7 @@ class SyncScope(Enum):
     AlbumStar = "专辑收藏"
     ArtistStar = "艺人收藏"
     PublicPlaylistStar = "公开歌单收藏"
-    PrivatePlaylist = "私有歌单"
+    # PrivatePlaylist = "私有歌单"
 
 
 @dataclass
