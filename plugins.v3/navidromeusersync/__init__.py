@@ -510,8 +510,8 @@ class NavidromeUserSync(_PluginBase):
 
         navidrome_clients: Dict[str, NavidromeClient] = {}
         group_account_map = self.__group_account_map or {}
-        for group, account_map in group_account_map.items():
-            if not group or not account_map:
+        for group_name, account_map in group_account_map.items():
+            if not group_name or not account_map:
                 continue
             for username, account in account_map:
                 if not username or not account:
@@ -629,10 +629,37 @@ class NavidromeUserSync(_PluginBase):
         """
         运行任务
         """
+        group_account_map: Dict[str, Dict[str, Dict[str, Any]]] = self.__group_account_map or {}
+        if not group_account_map:
+            return
+        for group_name, account_map in group_account_map.items():
+            if not group_name or not account_map:
+                continue
+            usernames = list(account_map.keys())
+            try:
+                logger.info(f"用户同步 - 单个分组 - 开始: group_name = {group_name}")
+                self.__sync_data_for_group(usernames=usernames)
+                logger.info(f"用户同步 - 单个分组 - 成功: group_name = {group_name}")
+            except Exception as e:
+                logger.error(f"用户同步 - 单个分组 - 失败: group_name = {group_name}, error = {e}")
+
+    def __sync_data_for_group(self, usernames: List[str]):
+        if not usernames:
+            return
+        self.__sync_public_data_for_group(usernames=usernames)
+
+    def __sync_public_data_for_group(self, usernames: List[str]):
+        if not usernames:
+            return
+
+    def __fetch_public_data(self, username: str):
         pass
 
     def __on_refresh_resource_event(self, username: str, event_data: Dict[str, Any]) -> None:
-        pass
+        if not username or not event_data:
+            return
+        if not self.__get_config_item(config_key='real_time_listen'):
+            return
 
     def __get_navidrome_configs(self) -> Optional[List[MediaServerConf]]:
         config_map = self.__media_server_helper.get_configs(include_disabled=True) or {}
