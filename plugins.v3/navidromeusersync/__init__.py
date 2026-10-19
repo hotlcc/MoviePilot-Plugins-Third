@@ -29,7 +29,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.6"
+    plugin_version = "3.0.7"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -509,11 +509,11 @@ class NavidromeUserSync(_PluginBase):
         host = navidrome_server_info.get("host")
 
         navidrome_clients: Dict[str, NavidromeClient] = {}
-        group_account_map = self.__group_account_map or {}
+        group_account_map: Dict[str, Dict[str, Dict[str, Any]]] = self.__group_account_map or {}
         for group_name, account_map in group_account_map.items():
             if not group_name or not account_map:
                 continue
-            for username, account in account_map:
+            for username, account in account_map.items():
                 if not username or not account:
                     continue
                 password = account.get("password")
