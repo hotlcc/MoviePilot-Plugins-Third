@@ -39,3 +39,8 @@ class StarredDTO:
 
     def marge_latest_version(self, other: StarredDTO) -> StarredDTO:
         return self.__merge_latest_version(self, other)
+
+    def equals(self, other: StarredDTO) -> bool:
+        if not other:
+            return False
+        return self.id == other.id and self.starred == other.starred

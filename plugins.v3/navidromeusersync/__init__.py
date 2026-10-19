@@ -15,7 +15,7 @@ from app.sdk.services import MediaServerHelper
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from .model import SyncScope
+from .model import SyncScope, StarredDTO
 from .navidrome_client import NavidromeClient
 from .navidrome_client.action import events
 
@@ -638,28 +638,93 @@ class NavidromeUserSync(_PluginBase):
             usernames = list(account_map.keys())
             try:
                 logger.info(f"用户同步 - 单个分组 - 开始: group_name = {group_name}")
-                self.__sync_data_for_group(usernames=usernames)
+                self.__sync_data(usernames=usernames)
                 logger.info(f"用户同步 - 单个分组 - 成功: group_name = {group_name}")
             except Exception as e:
                 logger.error(f"用户同步 - 单个分组 - 失败: group_name = {group_name}, error = {e}")
 
-    def __sync_data_for_group(self, usernames: List[str]):
+    def __sync_data(self, usernames: List[str]):
         if not usernames:
             return
-        self.__sync_public_data_for_group(usernames=usernames)
+        self.__sync_song_star(usernames=usernames)
 
-    def __sync_public_data_for_group(self, usernames: List[str]):
+    def __sync_song_star(self, usernames: List[str]):
+        """
+        同步歌曲收藏
+        """
         if not usernames:
             return
-
-    def __fetch_public_data(self, username: str):
-        pass
+        sync_scopes = self.__get_config_item(config_key='sync_scopes') or []
+        if not sync_scopes or SyncScope.SongStar.name not in sync_scopes:
+            return
+        user_data_map: Dict[str, List[StarredDTO]] = {}
+        for username in usernames:
+            if not username:
+                continue
+            navidrome_client = self.__navidrome_clients.get(username)
+            if not navidrome_client:
+                continue
+            user_data_map[username] = self.__convert_dict_list_to_starred_dto_list(data_list=navidrome_client.song().list())
+        latest_version_map: Dict[str, StarredDTO] = {}
+        for dto_list in user_data_map.values():
+            if not dto_list:
+                continue
+            for dto in dto_list:
+                if not dto or not dto.id:
+                    continue
+                existing_dto = latest_version_map.get(dto.id)
+                if not existing_dto:
+                    latest_version_map[dto.id] = dto
+                else:
+                    latest_version_map[dto.id] = dto.marge_latest_version(other=existing_dto)
+        for username in usernames:
+            if not username:
+                continue
+            user_dto_list = user_data_map.get(username)
+            if not user_dto_list:
+                continue
+            navidrome_client = self.__navidrome_clients.get(username)
+            if not navidrome_client:
+                continue
+            for user_dto in user_dto_list:
+                if not user_dto or not user_dto.id:
+                    continue
+                latest_version_dto = latest_version_map.get(user_dto.id)
+                if not latest_version_dto:
+                    continue
+                if user_dto.equals(latest_version_dto):
+                    continue
+                if latest_version_dto.starred:
+                    navidrome_client.rest().star(id=user_dto.id)
+                else:
+                    navidrome_client.rest().unstar(id=user_dto.id)
 
     def __on_refresh_resource_event(self, username: str, event_data: Dict[str, Any]) -> None:
         if not username or not event_data:
             return
         if not self.__get_config_item(config_key='real_time_listen'):
             return
+
+    @classmethod
+    def __convert_dict_to_starred_dto(cls, data: Dict[str, Any]) -> Optional[StarredDTO]:
+        if not data:
+            return None
+        id = data.get("id")
+        if not id:
+            return None
+        return StarredDTO(id=id, starred=data.get("starred"), starredAt=data.get("starredAt"))
+
+    @classmethod
+    def __convert_dict_list_to_starred_dto_list(cls, data_list: List[Dict[str, Any]]) -> Optional[List[StarredDTO]]:
+        if not data_list:
+            return None
+        result = []
+        for data in data_list:
+            starred_dto = cls.__convert_dict_to_starred_dto(data)
+            if not starred_dto:
+                continue
+            result.append(starred_dto)
+        return result
 
     def __get_navidrome_configs(self) -> Optional[List[MediaServerConf]]:
         config_map = self.__media_server_helper.get_configs(include_disabled=True) or {}
