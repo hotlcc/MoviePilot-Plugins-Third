@@ -643,62 +643,6 @@ class NavidromeUserSync(_PluginBase):
             except Exception as e:
                 logger.error(f"用户同步 - 单个分组 - 失败: group_name = {group_name}, error = {e}")
 
-    def __sync_data(self, usernames: List[str]):
-        if not usernames:
-            return
-        self.__sync_song_star(usernames=usernames)
-
-    def __sync_song_star(self, usernames: List[str]):
-        """
-        同步歌曲收藏
-        """
-        if not usernames:
-            return
-        sync_scopes = self.__get_config_item(config_key='sync_scopes') or []
-        if not sync_scopes or SyncScope.SongStar.name not in sync_scopes:
-            return
-        user_data_map: Dict[str, List[StarredDTO]] = {}
-        for username in usernames:
-            if not username:
-                continue
-            navidrome_client = self.__navidrome_clients.get(username)
-            if not navidrome_client:
-                continue
-            user_data_map[username] = self.__convert_dict_list_to_starred_dto_list(data_list=navidrome_client.song().list())
-        latest_version_map: Dict[str, StarredDTO] = {}
-        for dto_list in user_data_map.values():
-            if not dto_list:
-                continue
-            for dto in dto_list:
-                if not dto or not dto.id:
-                    continue
-                existing_dto = latest_version_map.get(dto.id)
-                if not existing_dto:
-                    latest_version_map[dto.id] = dto
-                else:
-                    latest_version_map[dto.id] = dto.marge_latest_version(other=existing_dto)
-        for username in usernames:
-            if not username:
-                continue
-            user_dto_list = user_data_map.get(username)
-            if not user_dto_list:
-                continue
-            navidrome_client = self.__navidrome_clients.get(username)
-            if not navidrome_client:
-                continue
-            for user_dto in user_dto_list:
-                if not user_dto or not user_dto.id:
-                    continue
-                latest_version_dto = latest_version_map.get(user_dto.id)
-                if not latest_version_dto:
-                    continue
-                if (user_dto.starred or False) == (latest_version_dto.starred or False):
-                    continue
-                if latest_version_dto.starred:
-                    navidrome_client.rest().star(id=user_dto.id)
-                else:
-                    navidrome_client.rest().unstar(id=user_dto.id)
-
     def __on_refresh_resource_event(self, username: str, event_data: Dict[str, Any]) -> None:
         if not username or not event_data:
             return
@@ -755,3 +699,59 @@ class NavidromeUserSync(_PluginBase):
         return {
             "host": host,
         }
+
+    def __sync_data(self, usernames: List[str]):
+        if not usernames:
+            return
+        self.__sync_song_star(usernames=usernames)
+
+    def __sync_song_star(self, usernames: List[str]):
+        """
+        同步歌曲收藏
+        """
+        if not usernames:
+            return
+        sync_scopes = self.__get_config_item(config_key='sync_scopes') or []
+        if not sync_scopes or SyncScope.SongStar.name not in sync_scopes:
+            return
+        user_data_map: Dict[str, List[StarredDTO]] = {}
+        for username in usernames:
+            if not username:
+                continue
+            navidrome_client = self.__navidrome_clients.get(username)
+            if not navidrome_client:
+                continue
+            user_data_map[username] = self.__convert_dict_list_to_starred_dto_list(data_list=navidrome_client.song().list())
+        latest_version_map: Dict[str, StarredDTO] = {}
+        for dto_list in user_data_map.values():
+            if not dto_list:
+                continue
+            for dto in dto_list:
+                if not dto or not dto.id:
+                    continue
+                existing_dto = latest_version_map.get(dto.id)
+                if not existing_dto:
+                    latest_version_map[dto.id] = dto
+                else:
+                    latest_version_map[dto.id] = dto.marge_latest_version(other=existing_dto)
+        for username in usernames:
+            if not username:
+                continue
+            user_dto_list = user_data_map.get(username)
+            if not user_dto_list:
+                continue
+            navidrome_client = self.__navidrome_clients.get(username)
+            if not navidrome_client:
+                continue
+            for user_dto in user_dto_list:
+                if not user_dto or not user_dto.id:
+                    continue
+                latest_version_dto = latest_version_map.get(user_dto.id)
+                if not latest_version_dto:
+                    continue
+                if (user_dto.starred or False) == (latest_version_dto.starred or False):
+                    continue
+                if latest_version_dto.starred:
+                    navidrome_client.rest().star(id=user_dto.id)
+                else:
+                    navidrome_client.rest().unstar(id=user_dto.id)
