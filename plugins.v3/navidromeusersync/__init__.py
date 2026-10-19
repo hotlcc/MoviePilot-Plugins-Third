@@ -29,7 +29,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.11"
+    plugin_version = "3.0.12"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -567,6 +567,7 @@ class NavidromeUserSync(_PluginBase):
             )
             await navidrome_client.events().start_listen()
             logger.info(f"启动Navidrome客户端 - 单个账户 - 完成: username = {username}")
+        await asyncio.Event().wait()
         logger.info("启动Navidrome客户端 - 完成")
 
     async def __stop_navidrome_clients(self) -> None:
