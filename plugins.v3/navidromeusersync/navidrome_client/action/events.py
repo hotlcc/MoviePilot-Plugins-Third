@@ -7,8 +7,9 @@ import json
 from enum import Enum
 from threading import RLock
 from typing import Dict, Any, Callable, TypeAlias, List, Optional, Coroutine, Union
-from urllib import parse
 
+import yarl
+from aiohttp import ClientSession, ClientTimeout, ClientRequest, ClientHandlerType, ClientResponse
 from aiohttp_sse_client2 import client as sse_client
 
 from .. import session as _session
@@ -19,6 +20,28 @@ class EventType(Enum):
     ServerStart = "serverStart"
     KeepAlive = "keepAlive"
     RefreshResource = "refreshResource"
+
+
+class TokenRefreshMiddleware:
+    def __init__(self, session: _session.NavidromeClientSession):
+        self.__session: _session.NavidromeClientSession = session
+
+    def __set_token(self, request: ClientRequest) -> None:
+        if not request:
+            return
+        new_url = yarl.URL(request.url).with_query({
+            "jwt": self.__session.token
+        })
+        request.url = new_url
+
+    async def __call__(self, request: ClientRequest, handler: ClientHandlerType) -> ClientResponse:
+        self.__set_token(request=request)
+        res = await handler(request)
+        if res.status == 401:
+            self.__session.refresh_token()
+            self.__set_token(request=request)
+            res = await handler(request)
+        return res
 
 
 EventData: TypeAlias = Dict[str, Any]
@@ -90,29 +113,26 @@ class EventsAction:
         self.__handlers.update({event_type: handlers})
 
     def __create_event_source(self) -> sse_client.EventSource:
-        params = {
-            "jwt": self.__session.token
-        }
-        query_str = parse.urlencode(params)
-        url = f"{self.__session.base_url}{self.__BASE_PATH}?{query_str}"
+        url = f"{self.__session.base_url}{self.__BASE_PATH}"
+        timeout = ClientTimeout(total=None, sock_read=30)
+        session = ClientSession(timeout=timeout, middlewares=[TokenRefreshMiddleware(session=self.__session)])
         return sse_client.EventSource(
             url=url,
+            session=session,
             on_open=lambda: logger.info("SSE连接成功"),
         )
 
     async def __fetch_event(self) -> None:
         while self.__running_task:
-            event_source = self.__create_event_source()
             try:
-                async with event_source:
+                async with self.__create_event_source() as event_source:
                     async for event in event_source:
                         await self.__on_message(event=event)
             except asyncio.CancelledError as e:
                 raise e
             except Exception as e:
                 logger.error(f"SSE连接错误: {e}")
-                await asyncio.sleep(30)
-                self.__session.refresh_token()
+                await asyncio.sleep(10)
 
     # noinspection PyTypeChecker,PyProtectedMember
     async def start_listen(self) -> None:
