@@ -1,2 +1,2 @@
-sseclient-py~=1.9.0
+aiohttp_sse_client2~=0.3.0 # SSE客户端
 pyyaml~=6.0.3
