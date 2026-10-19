@@ -572,10 +572,14 @@ class NavidromeUserSync(_PluginBase):
         logger.info("启动Navidrome客户端 - 完成")
 
     def __start_daemon_thread(self) -> None:
+        logger.info("启动守护线程 - 开始")
+        if not self.__get_config_item(config_key='enable'):
+            logger.warn("启动守护线程 - 终止: 原因 = 未启用插件")
+            return
+
         def __daemon_thread_task():
             asyncio.run(self.__start_navidrome_clients())
 
-        logger.info("启动守护线程 - 开始")
         thread = threading.Thread(target=__daemon_thread_task, daemon=True)
         thread.start()
         logger.info("启动守护线程 - 完成")
