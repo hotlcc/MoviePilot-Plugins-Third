@@ -30,7 +30,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.15"
+    plugin_version = "3.0.16"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -565,7 +565,7 @@ class NavidromeUserSync(_PluginBase):
 
             def __create_handler(username: str):
                 def __handler(_: events.EventType, event_data: Dict[str, Any]):
-                    self.__on_refresh_resource_event(username=username, event_data=event_data)
+                    self.__handle_refresh_resource_event_with_lock(username=username, event_data=event_data)
 
                 return __handler
 
@@ -704,12 +704,85 @@ class NavidromeUserSync(_PluginBase):
             except Exception as e:
                 logger.error(f"用户同步 - 单个分组 - 失败: group_name = {group_name}, error = {e}")
 
-    def __on_refresh_resource_event(self, username: str, event_data: Dict[str, Any]) -> None:
+    def __handle_refresh_resource_event_with_lock(self, username: str, event_data: Dict[str, Any]) -> None:
         if not username or not event_data:
             return
+
+        logger.info(f"带锁处理刷新资源事件 - 开始: username = {username}, event_type = {events.EventType.RefreshResource.name}, event_data = {event_data}")
+
         if not self.__get_config_item(config_key='enable') or not self.__get_config_item(config_key='real_time_listen'):
-            pass  # TODO
-        logger.debug(f"收到SSE事件: username = {username}, event_type = {events.EventType.RefreshResource.name}, event_data = {event_data}")
+            logger.warn(f"带锁处理刷新资源事件 - 终止: 原因 = 插件开关或实时监听开关未打开")
+            # return  # TODO
+
+        try:
+            self.__task_lock.acquire()
+            logger.info(f"处理刷新资源事件 - 开始: username = {username}, event_type = {events.EventType.RefreshResource.name}")
+            self.__handle_refresh_resource_event(username=username, event_data=event_data)
+            logger.info(f"处理刷新资源事件 - 成功: username = {username}, event_type = {events.EventType.RefreshResource.name}")
+        except Exception as e:
+            logger.error(f"处理刷新资源事件 - 失败: username = {username}, event_type = {events.EventType.RefreshResource.name}, error = {e}")
+        finally:
+            self.__task_lock.release()
+            logger.info(f"带锁处理刷新资源事件 - 完成: username = {username}, event_type = {events.EventType.RefreshResource.name}")
+
+    def __handle_refresh_resource_event(self, username: str, event_data: Dict[str, Any]) -> None:
+        usernames = self.__get_group_usernames_by_username(username=username)
+        if not usernames:
+            logger.warn(f"处理刷新资源事件 - 终止: username = {username}, 原因 = 未获取到账户分组下的全部账户")
+            return
+        usernames_str = ",".join(usernames)
+
+        try:
+            logger.info(f"处理刷新资源事件 - 分组同步 - 歌曲收藏 - 开始: usernames = {usernames_str}")
+            song_ids = event_data.get("song") or []
+            if song_ids:
+                self.__sync_song_star(usernames=usernames, ids=song_ids)
+            logger.info(f"处理刷新资源事件 - 分组同步 - 歌曲收藏 - 完成: usernames = {usernames_str}")
+        except Exception as e:
+            logger.error(f"处理刷新资源事件 - 分组同步 - 歌曲收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+        try:
+            logger.info(f"处理刷新资源事件 - 分组同步 - 专辑收藏 - 开始: usernames = {usernames_str}")
+            album_ids = event_data.get("album") or []
+            if album_ids:
+                self.__sync_album_star(usernames=usernames, ids=album_ids)
+            logger.info(f"处理刷新资源事件 - 分组同步 - 专辑收藏 - 完成: usernames = {usernames_str}")
+        except Exception as e:
+            logger.error(f"处理刷新资源事件 - 分组同步 - 专辑收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+        try:
+            logger.info(f"处理刷新资源事件 - 分组同步 - 艺人收藏 - 开始: usernames = {usernames_str}")
+            artist_ids = event_data.get("artist") or []
+            if artist_ids:
+                self.__sync_artist_star(usernames=usernames, ids=artist_ids)
+            logger.info(f"处理刷新资源事件 - 分组同步 - 艺人收藏 - 完成: usernames = {usernames_str}")
+        except Exception as e:
+            logger.error(f"处理刷新资源事件 - 分组同步 - 艺人收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+        try:
+            logger.info(f"处理刷新资源事件 - 分组同步 - 公开歌单收藏 - 开始: usernames = {usernames_str}")
+            playlist_ids = event_data.get("playlist") or []
+            if playlist_ids:
+                self.__sync_public_playlist_star(usernames=usernames, ids=playlist_ids)
+            logger.info(f"处理刷新资源事件 - 分组同步 - 公开歌单收藏 - 完成: usernames = {usernames_str}")
+        except Exception as e:
+            logger.error(f"处理刷新资源事件 - 分组同步 - 公开歌单收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+    def __get_group_name_by_username(self, username: str) -> Optional[str]:
+        group_account_map = self.__group_account_map or {}
+        for group_name, account_map in group_account_map.items():
+            account_map = account_map or {}
+            if username in account_map.keys():
+                return group_name
+        return None
+
+    def __get_group_usernames_by_username(self, username: str) -> Optional[List[str]]:
+        group_name = self.__get_group_name_by_username(username=username)
+        if not group_name:
+            return None
+        group_account_map = self.__group_account_map or {}
+        account_map = group_account_map.get(group_name) or {}
+        return list(account_map.keys())
 
     @classmethod
     def __convert_dict_to_starred_dto(cls, data: Dict[str, Any]) -> Optional[StarredDTO]:
