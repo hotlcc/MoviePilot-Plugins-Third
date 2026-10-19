@@ -30,7 +30,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.17"
+    plugin_version = "3.0.18"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -69,6 +69,7 @@ class NavidromeUserSync(_PluginBase):
         # 对象私有属性
         self.__task_lock = RLock()
         self.__exit_event = ThreadEvent()
+        self.__event_loop = asyncio.new_event_loop()
 
     def init_plugin(self, config: dict = None):
         """
@@ -355,6 +356,7 @@ class NavidromeUserSync(_PluginBase):
         try:
             logger.info('尝试停止插件服务...')
             self.__exit_event.set()
+            asyncio.set_event_loop(self.__event_loop)
             asyncio.run(self.__stop_navidrome_clients())
             self.__stop_scheduler()
             logger.info('插件服务停止完成')
@@ -587,6 +589,7 @@ class NavidromeUserSync(_PluginBase):
             return
 
         def __daemon_thread_task():
+            asyncio.set_event_loop(self.__event_loop)
             asyncio.run(self.__start_navidrome_clients())
 
         thread = threading.Thread(target=__daemon_thread_task, daemon=True)
