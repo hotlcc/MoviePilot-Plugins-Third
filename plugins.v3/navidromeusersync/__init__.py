@@ -16,7 +16,6 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .model import SyncScope
 from .navidrome_client import NavidromeClient
-from .navidrome_client.action import events
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode,PyShadowingNames
@@ -506,36 +505,26 @@ class NavidromeUserSync(_PluginBase):
         host = navidrome_server_info.get("host")
 
         navidrome_clients: Dict[str, NavidromeClient] = {}
-        group_accounts = self.__group_accounts or {}
-        groups = group_accounts.get("groups") or []
-        for group in groups:
-            if not group:
+        group_account_map = self.__group_account_map or {}
+        for group, account_map in group_account_map.items():
+            if not group or not account_map:
                 continue
-            accounts = group.get("accounts") or []
-            for account in accounts:
-                if not account:
+            for username, account in account_map:
+                if not username or not account:
                     continue
-                username = account.get("username")
                 password = account.get("password")
-                if not username or not password:
+                if not password:
                     continue
                 navidrome_client = NavidromeClient(base_url=host, username=username, password=password)
-                # 注册实时监听事件
-                if self.__get_config_item("real_time_listen"):
-                    navidrome_client.events().add_handler(
-                        event_type=events.EventType.RefreshResource,
-                        # TODO
-                        handler=lambda event_type, event_data: print(f"username = {username}, event_type = {event_type}"),
-                    )
                 navidrome_clients[username] = navidrome_client
         self.__navidrome_clients = navidrome_clients
 
     def __stop_navidrome_clients(self) -> None:
         if not self.__navidrome_clients:
             return
-        navidrome_clients = self.__navidrome_clients.values()
-        for navidrome_client in navidrome_clients:
-            if not navidrome_client:
+        navidrome_clients = self.__navidrome_clients or {}
+        for username, navidrome_client in navidrome_clients:
+            if not username or not navidrome_client:
                 continue
             navidrome_client.events().stop_client()
 
