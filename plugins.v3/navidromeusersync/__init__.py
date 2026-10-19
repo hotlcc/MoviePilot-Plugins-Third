@@ -708,8 +708,8 @@ class NavidromeUserSync(_PluginBase):
         if not username or not event_data:
             return
         if not self.__get_config_item(config_key='enable') or not self.__get_config_item(config_key='real_time_listen'):
-            return
-        logger.info(f"收到事件: username = {username}, event_data = {event_data}")
+            pass  # TODO
+        logger.debug(f"收到SSE事件: username = {username}, event_type = {events.EventType.RefreshResource.name}, event_data = {event_data}")
 
     @classmethod
     def __convert_dict_to_starred_dto(cls, data: Dict[str, Any]) -> Optional[StarredDTO]:
@@ -956,7 +956,7 @@ class NavidromeUserSync(_PluginBase):
             self.__batch_update_star_for_user(sync_scope=sync_scope, username=username, user_data_map=user_data_map, latest_version_map=latest_version_map)
         logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 完成: usernames = {usernames_str}")
 
-    def __sync_public_playlist_star(self, usernames: List[str]):
+    def __sync_public_playlist_star(self, usernames: List[str], ids: List[str] = None):
         """
         同步公开歌单收藏
         """

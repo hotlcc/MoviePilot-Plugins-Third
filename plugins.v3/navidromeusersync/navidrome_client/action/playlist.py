@@ -29,6 +29,17 @@ class PlaylistAction:
         assert_util.is_valid(id, "参数错误[id]")
         return self.__session.get(url=f"{self.__BASE_PATH}/{id}") or {}
 
+    def get_list_by_ids(self, ids: List[str],
+                        public: bool = None) -> Optional[List[dict]]:
+        """
+        根据IDs获取多个歌单信息
+        """
+        if not ids:
+            return None
+        result = [self.get_by_id(id=id) for id in ids if id]
+        result = [item for item in result if item and (public is None or public == item.get("public"))]
+        return result
+
     def page(self, _start: int = 0, _end: int = 15,
              _sort: str = "name", _order: str = "ASC",
              public: bool = None,
