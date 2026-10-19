@@ -39,7 +39,7 @@ class NavidromeClientSession(requests.Session):
         # 登录
         self.__auth_login(username=username, password=password)
 
-        # noinspection PyTypeChecker
+    # noinspection PyTypeChecker
     def __auth_login(self, username: str, password: str) -> dict:
         """
         登录
@@ -59,6 +59,15 @@ class NavidromeClientSession(requests.Session):
         return res_json
 
     # noinspection PyAttributeOutsideInit
+    def refresh_token(self, token: str = None) -> None:
+        if token:
+            if token != self.__token:
+                self.__token = token
+            return
+        # 登录
+        self.__auth_login(username=self.__username, password=self.__password)
+
+    # noinspection PyAttributeOutsideInit
     def request0(self, method, url, headers: Dict[str, str] = None, *args, **kwargs) -> requests.Response:
         url = http_util.improve_url(base_url=self.__base_url, req_url=url)
         headers = headers or {}
@@ -67,7 +76,20 @@ class NavidromeClientSession(requests.Session):
                 self.__TOKEN_HEADER_NAME: f"Bearer {self.__token}"
             })
         res = super().request(method=method, url=url, headers=headers, *args, **kwargs)
-        res.raise_for_status()
+        token = res.headers.get(self.__TOKEN_HEADER_NAME)
+        if token:
+            self.refresh_token(token=token)
+        if res.status_code == 401:
+            res_json = res.json() or {}
+            error = res_json.get("error") or ""
+            if error == "Invalid username or password":
+                raise Exception("用户名或密码无效")
+            elif error == "Not authenticated":
+                self.refresh_token()
+                return self.request0(method, url, headers=headers, *args, **kwargs)
+        if not res.ok:
+            res_json = res.json() or {}
+            raise Exception((res_json or {}).get("error", "请求失败"))
         return res
 
     # noinspection PyAttributeOutsideInit
@@ -76,14 +98,7 @@ class NavidromeClientSession(requests.Session):
         改写请求
         """
         res = self.request0(method=method, url=url, headers=headers, *args, **kwargs)
-        res_json = res.json()
-        if not res.ok:
-            raise Exception((res_json or {}).get("error", "请求失败"))
-        # 刷新token
-        token = res.headers.get(self.__TOKEN_HEADER_NAME)
-        if token and token != self.__token:
-            self.__token = token
-        return res_json
+        return res.json()
 
     def fill_rest_params(self, params: dict) -> None:
         """

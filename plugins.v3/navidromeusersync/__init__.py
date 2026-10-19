@@ -15,6 +15,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .model import SyncScope
+from .navidrome_client import NavidromeClient
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode,PyShadowingNames
@@ -54,6 +55,9 @@ class NavidromeUserSync(_PluginBase):
     __exit_event: Optional[ThreadEvent] = None
     # 插件用户配置
     __config: Optional[Dict[str, Any]] = None
+    __group_accounts: Optional[Dict[str, Any]] = None
+    # Navidrome客户端
+    __navidrome_clients: Optional[Dict[str, NavidromeClient]] = None
     # 调度器
     __scheduler: Optional[BackgroundScheduler] = None
 
@@ -69,15 +73,17 @@ class NavidromeUserSync(_PluginBase):
         :param config: 配置信息字典
         """
         # 对象私有属性
-        self.__config = config or {}
-        self.__init_scheduler()
-        # 修正配置
+        # 配置
         self.__config = self.__fix_config(config=config)
         # 检查配置
         check_config = self.__check_config()
+        if not check_config:
+            return
+        # 初始化客户端
+        self.__init_navidrome_clients()
+        self.__init_scheduler()
         # 处理运行一次
-        if check_config:
-            self.__run_once()
+        self.__run_once()
 
     def get_state(self) -> bool:
         """
@@ -338,6 +344,7 @@ class NavidromeUserSync(_PluginBase):
             logger.info('尝试停止插件服务...')
             self.__exit_event.set()
             self.__stop_scheduler()
+            self.__stop_navidrome_clients()
             self.__gc()
             logger.info('插件服务停止完成')
         except Exception as e:
@@ -378,20 +385,58 @@ class NavidromeUserSync(_PluginBase):
         return config_value
 
     def __check_config(self) -> bool:
-        config = self.__config or {}
         result = True
-        if not config.get("navidrome_server"):
+        if not self.__get_config_item("navidrome_server"):
             logger.error("配置检查不通过：Navidrome服务器")
             result = False
-        if not config.get("sync_scopes"):
+        if not self.__get_config_item("sync_scopes"):
             logger.error("配置检查不通过：同步范围")
             result = False
-        group_accounts = config.get("group_accounts")
-        if not group_accounts:
-            logger.error("配置检查不通过：分组账户")
+        if not self.__check_group_accounts():
             result = False
-        else:
-            group_accounts_obj = yaml.safe_load(stream=group_accounts)
+        return result
+
+    def __check_group_accounts(self) -> bool:
+        group_accounts = self.__get_config_item("group_accounts") or ""
+        group_accounts_obj = yaml.safe_load(stream=group_accounts) or {}
+        if not group_accounts_obj:
+            logger.error("配置检查不通过：分组账户")
+            return False
+        groups = group_accounts_obj.get("groups") or []
+        if not groups:
+            logger.error("配置检查不通过：分组账户[groups]")
+            return False
+        result = True
+        for group_index, group in enumerate(groups):
+            group_path = f"groups[{group_index}]"
+            if not group:
+                logger.error(f"配置检查不通过：分组账户.{group_path}")
+                result = False
+                continue
+            name = group.get("name")
+            if not name:
+                logger.error(f"配置检查不通过：分组账户.{group_path}.name")
+                result = False
+            accounts = group.get("accounts") or []
+            if not accounts:
+                logger.error(f"配置检查不通过：分组账户.{group_path}.accounts")
+                result = False
+            else:
+                for account_index, account in enumerate(accounts):
+                    account_path = f"{group_path}.accounts[{account_index}]"
+                    if not account:
+                        logger.error(f"配置检查不通过：分组账户.{account_path}")
+                        result = False
+                        continue
+                    username = account.get("username")
+                    if not username:
+                        logger.error(f"配置检查不通过：分组账户.{account_path}.username")
+                        result = False
+                    password = account.get("password")
+                    if not password:
+                        logger.error(f"配置检查不通过：分组账户.{account_path}.password")
+                        result = False
+        self.__group_accounts = group_accounts_obj
         return result
 
     def __run_once(self):
@@ -441,6 +486,39 @@ class NavidromeUserSync(_PluginBase):
                 logger.info('插件未启用服务调度器，无须停止')
         except Exception as e:
             logger.error(f"插件服务调度器停止异常: {str(e)}", exc_info=True)
+
+    def __init_navidrome_clients(self) -> None:
+        navidrome_server_info = self.__get_navidrome_server_info() or {}
+        if not navidrome_server_info:
+            raise Exception("Navidrome服务器配置无效")
+        host = navidrome_server_info.get("host")
+
+        navidrome_clients: Dict[str, NavidromeClient] = {}
+        group_accounts = self.__group_accounts or {}
+        groups = group_accounts.get("groups") or []
+        for group in groups:
+            if not group:
+                continue
+            accounts = group.get("accounts") or []
+            for account in accounts:
+                if not account:
+                    continue
+                username = account.get("username")
+                password = account.get("password")
+                if not username or not password:
+                    continue
+                navidrome_client = NavidromeClient(base_url=host, username=username, password=password)
+                navidrome_clients[username] = navidrome_client
+        self.__navidrome_clients = navidrome_clients
+
+    def __stop_navidrome_clients(self) -> None:
+        if not self.__navidrome_clients:
+            return
+        navidrome_clients = self.__navidrome_clients.values()
+        for navidrome_client in navidrome_clients:
+            if not navidrome_client:
+                continue
+            navidrome_client.events().stop_client()
 
     def __gc(self):
         """
@@ -534,3 +612,22 @@ class NavidromeUserSync(_PluginBase):
 
     def __get_navidrome_config(self, name: str) -> Optional[MediaServerConf]:
         return self.__media_server_helper.get_config(name=name)
+
+    def __get_navidrome_server_info(self) -> Optional[Dict[str, str]]:
+        navidrome_server = self.__get_config_item(config_key="navidrome_server")
+        if not navidrome_server:
+            return None
+
+        navidrome_config = self.__get_navidrome_config(name=navidrome_server)
+        if not navidrome_config or not navidrome_config.config:
+            logger.warn("选择的Navidrome服务器配置无效")
+            return None
+
+        host = navidrome_config.config.get("host")
+        if not host:
+            logger.warn("选择的Navidrome服务器配置无效")
+            return None
+
+        return {
+            "host": host,
+        }
