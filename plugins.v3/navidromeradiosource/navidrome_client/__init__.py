@@ -9,6 +9,7 @@ from . import session
 from .action import album
 from .action import artist
 from .action import events
+from .action import playlist
 from .action import radio
 from .action import rest
 from .action import song
@@ -56,6 +57,7 @@ class NavidromeClient:
         self.__rest = rest.RestAction(session=self.__session)
         self.__album = album.AlbumAction(session=self.__session)
         self.__artist = artist.ArtistAction(session=self.__session)
+        self.__playlist = playlist.PlaylistAction(session=self.__session)
         self.__events = events.EventsAction(session=self.__session)
 
     def radio(self) -> radio.RadioAction:
@@ -87,6 +89,12 @@ class NavidromeClient:
         艺人操作
         """
         return self.__artist
+
+    def playlist(self) -> playlist.PlaylistAction:
+        """
+        歌单操作
+        """
+        return self.__playlist
 
     def events(self) -> events.EventsAction:
         """

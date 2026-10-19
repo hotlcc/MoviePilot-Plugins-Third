@@ -29,6 +29,14 @@ class AlbumAction:
         assert_util.is_valid(id, "参数错误[id]")
         return self.__session.get(url=f"{self.__BASE_PATH}/{id}") or {}
 
+    def get_list_by_ids(self, ids: List[str]) -> Optional[List[dict]]:
+        """
+        根据IDs获取多个专辑信息
+        """
+        if not ids:
+            return None
+        return [self.get_by_id(id=id) for id in ids if id]
+
     def page(self, _start: int = 0, _end: int = 12,
              _sort: str = "name", _order: str = "ASC",
              library_id: List[int] = None,
