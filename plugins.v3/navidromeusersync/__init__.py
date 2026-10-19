@@ -30,7 +30,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.14"
+    plugin_version = "3.0.15"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -563,12 +563,15 @@ class NavidromeUserSync(_PluginBase):
                 logger.warn(f"启动Navidrome客户端 - 单个账户 - 终止: username = {username}, 原因 = 不存在已初始化的客户端")
                 continue
 
-            def __on_refresh_resource_event(_: events.EventType, event_data: Dict[str, Any]):
-                self.__on_refresh_resource_event(username=username, event_data=event_data)
+            def __create_handler(username: str):
+                def __handler(_: events.EventType, event_data: Dict[str, Any]):
+                    self.__on_refresh_resource_event(username=username, event_data=event_data)
+
+                return __handler
 
             navidrome_client.events().add_handler(
                 event_type=events.EventType.RefreshResource,
-                handler=__on_refresh_resource_event,
+                handler=__create_handler(username=username),
             )
             await navidrome_client.events().start_listen()
             logger.info(f"启动Navidrome客户端 - 单个账户 - 完成: username = {username}")
