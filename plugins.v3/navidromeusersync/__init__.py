@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from datetime import datetime, timedelta
 from threading import RLock, Event as ThreadEvent
 from typing import Any, List, Dict, Tuple, Optional
@@ -89,8 +90,8 @@ class NavidromeUserSync(_PluginBase):
             logger.info("配置检查通过")
         # 初始化客户端
         self.__init_navidrome_clients()
-        # 启动客户端
-        asyncio.run(self.__start_navidrome_clients())
+        # 启动守护线程
+        self.__start_daemon_thread()
         self.__init_scheduler()
         # 处理运行一次
         self.__run_once()
@@ -569,6 +570,15 @@ class NavidromeUserSync(_PluginBase):
             logger.info(f"启动Navidrome客户端 - 单个账户 - 完成: username = {username}")
         await asyncio.Event().wait()
         logger.info("启动Navidrome客户端 - 完成")
+
+    def __start_daemon_thread(self) -> None:
+        def __daemon_thread_task():
+            asyncio.run(self.__start_navidrome_clients())
+
+        logger.info("启动守护线程 - 开始")
+        thread = threading.Thread(target=__daemon_thread_task, daemon=True)
+        thread.start()
+        logger.info("启动守护线程 - 完成")
 
     async def __stop_navidrome_clients(self) -> None:
         logger.info("停止Navidrome客户端 - 开始")
