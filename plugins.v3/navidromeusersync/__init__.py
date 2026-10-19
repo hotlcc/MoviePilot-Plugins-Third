@@ -692,7 +692,7 @@ class NavidromeUserSync(_PluginBase):
                 latest_version_dto = latest_version_map.get(user_dto.id)
                 if not latest_version_dto:
                     continue
-                if user_dto.equals(latest_version_dto):
+                if (user_dto.starred or False) == (latest_version_dto.starred or False):
                     continue
                 if latest_version_dto.starred:
                     navidrome_client.rest().star(id=user_dto.id)
