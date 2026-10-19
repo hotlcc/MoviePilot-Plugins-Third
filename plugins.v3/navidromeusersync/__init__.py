@@ -24,13 +24,13 @@ from .navidrome_client.action import events
 # noinspection SpellCheckingInspection,DuplicatedCode,PyShadowingNames
 class NavidromeUserSync(_PluginBase):
     # 插件名称
-    plugin_name = "Navidrome用户同步"
+    plugin_name = "Navidrome跨用户同步"
     # 插件描述
-    plugin_desc = "多用户间自动同步收藏与歌单。"
+    plugin_desc = "多用户间自动同步收藏数据。"
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.0.18"
+    plugin_version = "3.1.0"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
