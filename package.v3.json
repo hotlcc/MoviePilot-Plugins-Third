@@ -60,7 +60,7 @@
     "name": "（开发中，未完成）",
     "description": "多用户间自动同步收藏与歌单。",
     "labels": "媒体工具",
-    "version": "3.0.13",
+    "version": "3.0.14",
     "release": true,
     "icon": "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png",
     "author": "hotlcc",
@@ -68,7 +68,7 @@
     "v3": true,
     "system_version": ">=3.0.0",
     "history": {
-      "v3.0.13": "开发版本。"
+      "v3.0.14": "开发版本。"
     }
   }
 }
