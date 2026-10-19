@@ -16,6 +16,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .model import SyncScope
 from .navidrome_client import NavidromeClient
+from .navidrome_client.action import events
 
 
 # noinspection SpellCheckingInspection,DuplicatedCode,PyShadowingNames
@@ -508,6 +509,13 @@ class NavidromeUserSync(_PluginBase):
                 if not username or not password:
                     continue
                 navidrome_client = NavidromeClient(base_url=host, username=username, password=password)
+                # 注册实时监听事件
+                if self.__get_config_item("real_time_listen"):
+                    navidrome_client.events().add_handler(
+                        event_type=events.EventType.RefreshResource,
+                        # TODO
+                        handler=lambda event_type, event_data: print(f"username = {username}, event_type = {event_type}"),
+                    )
                 navidrome_clients[username] = navidrome_client
         self.__navidrome_clients = navidrome_clients
 
