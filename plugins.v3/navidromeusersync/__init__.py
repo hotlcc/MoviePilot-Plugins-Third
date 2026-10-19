@@ -56,7 +56,7 @@ class NavidromeUserSync(_PluginBase):
     __exit_event: Optional[ThreadEvent] = None
     # 插件用户配置
     __config: Optional[Dict[str, Any]] = None
-    __group_accounts: Optional[Dict[str, Any]] = None
+    __group_account_map: Optional[Dict[str, Any]] = None
     # Navidrome客户端
     __navidrome_clients: Optional[Dict[str, NavidromeClient]] = None
     # 调度器
@@ -408,6 +408,7 @@ class NavidromeUserSync(_PluginBase):
             logger.error("配置检查不通过：分组账户[groups]")
             return False
         result = True
+        self.__group_account_map = group_account_map = {}
         for group_index, group in enumerate(groups):
             group_path = f"groups[{group_index}]"
             if not group:
@@ -415,9 +416,15 @@ class NavidromeUserSync(_PluginBase):
                 result = False
                 continue
             name = group.get("name")
+            account_map = {}
             if not name:
                 logger.error(f"配置检查不通过：分组账户.{group_path}.name")
                 result = False
+            elif name in group_account_map.keys():
+                logger.error(f"配置检查不通过：分组账户.{group_path}.name重复")
+                result = False
+            else:
+                group_account_map[name] = account_map
             accounts = group.get("accounts") or []
             if not accounts:
                 logger.error(f"配置检查不通过：分组账户.{group_path}.accounts")
@@ -433,11 +440,15 @@ class NavidromeUserSync(_PluginBase):
                     if not username:
                         logger.error(f"配置检查不通过：分组账户.{account_path}.username")
                         result = False
+                    elif username in account_map.keys():
+                        logger.error(f"配置检查不通过：分组账户.{account_path}.username重复")
+                        result = False
+                    else:
+                        account_map[username] = account
                     password = account.get("password")
                     if not password:
                         logger.error(f"配置检查不通过：分组账户.{account_path}.password")
                         result = False
-        self.__group_accounts = group_accounts_obj
         return result
 
     def __run_once(self):
