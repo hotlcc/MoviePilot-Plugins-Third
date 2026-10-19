@@ -562,9 +562,13 @@ class NavidromeUserSync(_PluginBase):
             if not username or not navidrome_client:
                 logger.warn(f"启动Navidrome客户端 - 单个账户 - 终止: username = {username}, 原因 = 不存在已初始化的客户端")
                 continue
+
+            def __on_refresh_resource_event(_: events.EventType, event_data: Dict[str, Any]):
+                self.__on_refresh_resource_event(username=username, event_data=event_data)
+
             navidrome_client.events().add_handler(
                 event_type=events.EventType.RefreshResource,
-                handler=lambda event_type, event_data: self.__on_refresh_resource_event(username=username, event_data=event_data),
+                handler=__on_refresh_resource_event,
             )
             await navidrome_client.events().start_listen()
             logger.info(f"启动Navidrome客户端 - 单个账户 - 完成: username = {username}")
