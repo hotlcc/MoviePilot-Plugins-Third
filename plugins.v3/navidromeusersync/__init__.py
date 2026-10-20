@@ -524,6 +524,7 @@ class NavidromeUserSync(_PluginBase):
                 scheduler.remove_all_jobs()
                 if scheduler.running:
                     scheduler.shutdown()
+                self.__scheduler = None
                 logger.info('插件服务调度器停止成功')
             else:
                 logger.info('插件未启用服务调度器，无须停止')
@@ -622,6 +623,8 @@ class NavidromeUserSync(_PluginBase):
 
         asyncio.set_event_loop(self.__event_loop)
         asyncio.run(__stop_all())
+        self.__navidrome_clients.clear()
+        self.__navidrome_clients = None
         logger.info("停止Navidrome客户端 - 完成")
 
     def __try_run(self):
