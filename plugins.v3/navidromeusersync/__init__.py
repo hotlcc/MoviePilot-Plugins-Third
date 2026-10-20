@@ -356,8 +356,7 @@ class NavidromeUserSync(_PluginBase):
         try:
             logger.info('尝试停止插件服务...')
             self.__exit_event.set()
-            asyncio.set_event_loop(self.__event_loop)
-            asyncio.run(self.__stop_navidrome_clients())
+            self.__stop_navidrome_clients()
             self.__stop_scheduler()
             logger.info('插件服务停止完成')
         except Exception as e:
@@ -601,7 +600,7 @@ class NavidromeUserSync(_PluginBase):
         thread.start()
         logger.info("启动守护线程 - 完成")
 
-    async def __stop_navidrome_clients(self) -> None:
+    def __stop_navidrome_clients(self) -> None:
         logger.info("停止Navidrome客户端 - 开始")
         if not self.__get_config_item(config_key='enable'):
             logger.warn("停止Navidrome客户端 - 终止: 原因 = 未启用插件，无需停止")
@@ -613,11 +612,16 @@ class NavidromeUserSync(_PluginBase):
         if not navidrome_clients:
             logger.warn("停止Navidrome客户端 - 终止: 原因 = 不存在已初始化的客户端")
             return
-        for username, navidrome_client in navidrome_clients.items():
-            if not username or not navidrome_client:
-                logger.warn(f"停止Navidrome客户端 - 单个账户 - 终止: username = {username}, 原因 = 不存在已初始化的客户端")
-                continue
-            await navidrome_client.events().stop_listen()
+
+        async def __stop_all() -> None:
+            for username, navidrome_client in navidrome_clients.items():
+                if not username or not navidrome_client:
+                    logger.warn(f"停止Navidrome客户端 - 单个账户 - 终止: username = {username}, 原因 = 不存在已初始化的客户端")
+                    continue
+                await navidrome_client.events().stop_listen()
+
+        asyncio.set_event_loop(self.__event_loop)
+        asyncio.run(__stop_all())
         logger.info("停止Navidrome客户端 - 完成")
 
     def __try_run(self):
