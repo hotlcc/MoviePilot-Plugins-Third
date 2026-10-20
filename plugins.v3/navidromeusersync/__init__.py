@@ -694,6 +694,9 @@ class NavidromeUserSync(_PluginBase):
         if not group_account_map:
             return
         for group_name, account_map in group_account_map.items():
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             if not group_name or not account_map:
                 continue
             usernames = list(account_map.keys())
@@ -712,6 +715,10 @@ class NavidromeUserSync(_PluginBase):
 
         if not self.__get_config_item(config_key='enable') or not self.__get_config_item(config_key='real_time_listen'):
             logger.warn(f"带锁处理刷新资源事件 - 终止: 原因 = 插件开关或实时监听开关未打开")
+            return
+
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
             return
 
         try:
@@ -741,6 +748,10 @@ class NavidromeUserSync(_PluginBase):
         except Exception as e:
             logger.error(f"处理刷新资源事件 - 分组同步 - 歌曲收藏 - 失败: usernames = {usernames_str}, error = {e}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         try:
             logger.info(f"处理刷新资源事件 - 分组同步 - 专辑收藏 - 开始: usernames = {usernames_str}")
             album_ids = event_data.get("album") or []
@@ -750,6 +761,10 @@ class NavidromeUserSync(_PluginBase):
         except Exception as e:
             logger.error(f"处理刷新资源事件 - 分组同步 - 专辑收藏 - 失败: usernames = {usernames_str}, error = {e}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         try:
             logger.info(f"处理刷新资源事件 - 分组同步 - 艺人收藏 - 开始: usernames = {usernames_str}")
             artist_ids = event_data.get("artist") or []
@@ -758,6 +773,10 @@ class NavidromeUserSync(_PluginBase):
             logger.info(f"处理刷新资源事件 - 分组同步 - 艺人收藏 - 完成: usernames = {usernames_str}")
         except Exception as e:
             logger.error(f"处理刷新资源事件 - 分组同步 - 艺人收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
 
         try:
             logger.info(f"处理刷新资源事件 - 分组同步 - 公开歌单收藏 - 开始: usernames = {usernames_str}")
@@ -848,6 +867,10 @@ class NavidromeUserSync(_PluginBase):
         except Exception as e:
             logger.error(f"分组同步 - 歌曲收藏 - 失败: usernames = {usernames_str}, error = {e}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         try:
             logger.info(f"分组同步 - 专辑收藏 - 开始: usernames = {usernames_str}")
             self.__sync_album_star(usernames=usernames)
@@ -855,12 +878,20 @@ class NavidromeUserSync(_PluginBase):
         except Exception as e:
             logger.error(f"分组同步 - 专辑收藏 - 失败: usernames = {usernames_str}, error = {e}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         try:
             logger.info(f"分组同步 - 艺人收藏 - 开始: usernames = {usernames_str}")
             self.__sync_artist_star(usernames=usernames)
             logger.info(f"分组同步 - 艺人收藏 - 完成: usernames = {usernames_str}")
         except Exception as e:
             logger.error(f"分组同步 - 艺人收藏 - 失败: usernames = {usernames_str}, error = {e}")
+
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
 
         try:
             logger.info(f"分组同步 - 公开歌单收藏 - 开始: usernames = {usernames_str}")
@@ -871,15 +902,20 @@ class NavidromeUserSync(_PluginBase):
 
         logger.info(f"分组同步 - 完成: usernames = {usernames_str}")
 
-    @classmethod
-    def __merge_latest_version(cls, user_data_map: Dict[str, List[StarredDTO]]) -> Dict[str, StarredDTO]:
+    def __merge_latest_version(self, user_data_map: Dict[str, List[StarredDTO]]) -> Dict[str, StarredDTO]:
         latest_version_map: Dict[str, StarredDTO] = {}
         if not user_data_map:
             return latest_version_map
         for dto_list in user_data_map.values():
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return latest_version_map
             if not dto_list:
                 continue
             for dto in dto_list:
+                if self.__exit_event.is_set():
+                    logger.warn('插件服务正在退出，操作取消')
+                    return latest_version_map
                 if not dto or not dto.id:
                     continue
                 existing_dto = latest_version_map.get(dto.id)
@@ -906,6 +942,9 @@ class NavidromeUserSync(_PluginBase):
             logger.warn(f"分组同步 - {sync_scope.value} - 执行同步 - 单个用户 - 终止: username = {username}, 原因 = 用户客户端不存在")
             return
         for user_dto in user_dto_list:
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             if not user_dto or not user_dto.id:
                 continue
             latest_version_dto = latest_version_map.get(user_dto.id)
@@ -938,6 +977,9 @@ class NavidromeUserSync(_PluginBase):
         logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 开始: usernames = {usernames_str}")
         user_data_map: Dict[str, List[StarredDTO]] = {}
         for username in usernames:
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             if not username:
                 continue
             navidrome_client = self.__navidrome_clients.get(username)
@@ -952,12 +994,23 @@ class NavidromeUserSync(_PluginBase):
             logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 单个用户完成: username = {username}, num = {len(user_data_list)}")
         logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 完成: usernames = {usernames_str}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 开始: usernames = {usernames_str}")
         latest_version_map: Dict[str, StarredDTO] = self.__merge_latest_version(user_data_map=user_data_map)
         logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 完成: usernames = {usernames_str}, num = {len(latest_version_map)}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 开始: usernames = {usernames_str}")
         for username in usernames:
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             self.__batch_update_star_for_user(sync_scope=sync_scope, username=username, user_data_map=user_data_map, latest_version_map=latest_version_map)
         logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 完成: usernames = {usernames_str}")
 
@@ -978,6 +1031,9 @@ class NavidromeUserSync(_PluginBase):
         logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 开始: usernames = {usernames_str}")
         user_data_map: Dict[str, List[StarredDTO]] = {}
         for username in usernames:
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             if not username:
                 continue
             navidrome_client = self.__navidrome_clients.get(username)
@@ -992,12 +1048,23 @@ class NavidromeUserSync(_PluginBase):
             logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 单个用户完成: username = {username}, num = {len(user_data_list)}")
         logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 完成: usernames = {usernames_str}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 开始: usernames = {usernames_str}")
         latest_version_map: Dict[str, StarredDTO] = self.__merge_latest_version(user_data_map=user_data_map)
         logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 完成: usernames = {usernames_str}, num = {len(latest_version_map)}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 开始: usernames = {usernames_str}")
         for username in usernames:
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             self.__batch_update_star_for_user(sync_scope=sync_scope, username=username, user_data_map=user_data_map, latest_version_map=latest_version_map)
         logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 完成: usernames = {usernames_str}")
 
@@ -1018,6 +1085,9 @@ class NavidromeUserSync(_PluginBase):
         logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 开始: usernames = {usernames_str}")
         user_data_map: Dict[str, List[StarredDTO]] = {}
         for username in usernames:
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             if not username:
                 continue
             navidrome_client = self.__navidrome_clients.get(username)
@@ -1032,12 +1102,23 @@ class NavidromeUserSync(_PluginBase):
             logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 单个用户完成: username = {username}, num = {len(user_data_list)}")
         logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 完成: usernames = {usernames_str}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 开始: usernames = {usernames_str}")
         latest_version_map: Dict[str, StarredDTO] = self.__merge_latest_version(user_data_map=user_data_map)
         logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 完成: usernames = {usernames_str}, num = {len(latest_version_map)}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 开始: usernames = {usernames_str}")
         for username in usernames:
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             self.__batch_update_star_for_user(sync_scope=sync_scope, username=username, user_data_map=user_data_map, latest_version_map=latest_version_map)
         logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 完成: usernames = {usernames_str}")
 
@@ -1058,6 +1139,9 @@ class NavidromeUserSync(_PluginBase):
         logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 开始: usernames = {usernames_str}")
         user_data_map: Dict[str, List[StarredDTO]] = {}
         for username in usernames:
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             if not username:
                 continue
             navidrome_client = self.__navidrome_clients.get(username)
@@ -1072,11 +1156,22 @@ class NavidromeUserSync(_PluginBase):
             logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 单个用户完成: username = {username}, num = {len(user_data_list)}")
         logger.info(f"分组同步 - {sync_scope.value} - 获取用户数据 - 完成: usernames = {usernames_str}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 开始: usernames = {usernames_str}")
         latest_version_map: Dict[str, StarredDTO] = self.__merge_latest_version(user_data_map=user_data_map)
         logger.info(f"分组同步 - {sync_scope.value} - 合并最终版本 - 完成: usernames = {usernames_str}, num = {len(latest_version_map)}")
 
+        if self.__exit_event.is_set():
+            logger.warn('插件服务正在退出，操作取消')
+            return
+
         logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 开始: usernames = {usernames_str}")
         for username in usernames:
+            if self.__exit_event.is_set():
+                logger.warn('插件服务正在退出，操作取消')
+                return
             self.__batch_update_star_for_user(sync_scope=sync_scope, username=username, user_data_map=user_data_map, latest_version_map=latest_version_map)
         logger.info(f"分组同步 - {sync_scope.value} - 执行同步 - 完成: usernames = {usernames_str}")
