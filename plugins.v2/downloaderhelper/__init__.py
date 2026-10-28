@@ -7,13 +7,6 @@ from typing import Any, List, Dict, Tuple, Optional, Set, Union
 from urllib.parse import urlparse
 
 import pytz
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from cachetools import TTLCache, cached
-from qbittorrentapi import TorrentDictionary, TorrentState
-from transmission_rpc.torrent import Torrent, Status as TorrentStatus
-from ruamel.yaml.comments import CommentedMap
-
 from app.core.config import settings
 from app.core.event import eventmanager, Event
 from app.helper.downloader import DownloaderHelper as SystemDownloaderHelper
@@ -26,6 +19,12 @@ from app.plugins.downloaderhelper.module import TaskContext, TaskResult, Torrent
 from app.schemas import NotificationType, DownloaderConf, ServiceInfo
 from app.schemas.types import EventType
 from app.utils.string import StringUtils
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from cachetools import TTLCache, cached
+from qbittorrentapi import TorrentDictionary, TorrentState
+from ruamel.yaml.comments import CommentedMap
+from transmission_rpc.torrent import Torrent, Status as TorrentStatus
 
 
 class DownloaderHelper(_PluginBase):
@@ -1530,7 +1529,27 @@ class DownloaderHelper(_PluginBase):
 
         return site_tag, delete_suggest
 
-    def __check_need_delete_for_qbittorrent(self, torrent: TorrentDictionary, context: TaskContext) -> Tuple[bool, str]:
+    @classmethod
+    def __check_path_exists_file(cls, path: str) -> bool:
+        """
+        判断路径下是否存在文件
+        """
+        if not path:
+            return False
+        if not os.path.exists(path):
+            return False
+        if os.path.isfile(path):
+            return True
+        elif os.path.isdir(path):
+            with os.scandir(path) as entries:
+                for entry in entries:
+                    if cls.__check_path_exists_file(path=entry.path):
+                        return True
+                return False
+        else:
+            return False
+
+    def __check_need_delete_for_qbittorrent(self, torrent: TorrentDictionary, context: TaskContext) -> Tuple[bool, Optional[str], Optional[bool]]:
         """
         检查qb种子是否满足删除条件
         :param context: 任务上下文
@@ -1540,7 +1559,7 @@ class DownloaderHelper(_PluginBase):
             return False, None, None
 
         # 下载中的种子不允许删除
-        if (torrent.state_enum.is_downloading):
+        if torrent.state_enum.is_downloading:
             return False, None, None
 
         # 根据种子状态判断是否应该删种：状态为丢失文件时需要删除
@@ -1559,8 +1578,8 @@ class DownloaderHelper(_PluginBase):
                                                                                        source_file_info=download_file_deleted_event_data)
             if not match:
                 return False, None, None
-            # 如果匹配的种子数据路径不存在，说明数据文件已经（全部）被删除了，那么就允许删种
-            if not os.path.exists(torrent_data_path):
+            # 如果匹配的种子数据路径下不存在文件，说明数据文件已经（全部）被删除了，那么就允许删种
+            if not self.__check_path_exists_file(path=torrent_data_path):
                 return True, "源文件删除事件", True
             # 否则根据【事件删种策略】处理删种
             else:
@@ -1579,7 +1598,7 @@ class DownloaderHelper(_PluginBase):
                 return True, "下载任务删除事件", True
         return False, None, None
 
-    def __check_need_delete_for_transmission(self, torrent: Torrent, context: TaskContext) -> Tuple[bool, str]:
+    def __check_need_delete_for_transmission(self, torrent: Torrent, context: TaskContext) -> Tuple[bool, Optional[str], Optional[bool]]:
         """
         检查tr种子是否满足删除条件
         :param context: 任务上下文
@@ -1589,7 +1608,7 @@ class DownloaderHelper(_PluginBase):
             return False, None, None
 
         # 下载中的种子不允许删除
-        if (torrent.progress < 100):
+        if torrent.progress < 100:
             return False, None, None
 
         # 根据种子状态判断是否应该删种：状态为丢失文件时需要删除
@@ -1608,8 +1627,8 @@ class DownloaderHelper(_PluginBase):
                                                                                         source_file_info=download_file_deleted_event_data)
             if not match:
                 return False, None, None
-            # 如果匹配的种子数据路径不存在，说明数据文件已经（全部）被删除了，那么就允许删种
-            if not os.path.exists(torrent_data_path):
+            # 如果匹配的种子数据路径下不存在文件，说明数据文件已经（全部）被删除了，那么就允许删种
+            if not self.__check_path_exists_file(path=torrent_data_path):
                 return True, "源文件删除事件", True
             # 否则根据【事件删种策略】处理删种
             else:
