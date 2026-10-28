@@ -1949,7 +1949,7 @@ class DownloaderHelper(_PluginBase):
         获取qb种子
         """
         if not qbittorrent:
-            return None, False
+            return [], False
         return self.__get_torrents_for_qbittorrent_with_cache(qbittorrent=qbittorrent) if with_cache else qbittorrent.get_torrents()
 
     @cached(cache=TTLCache(maxsize=1, ttl=10))
@@ -1958,7 +1958,7 @@ class DownloaderHelper(_PluginBase):
         获取qb种子
         """
         if not qbittorrent:
-            return None, False
+            return [], False
         return qbittorrent.get_torrents()
 
     def __seeding_batch_for_qbittorrent(self, downloader_name: str, torrents: List[TorrentDictionary]) -> int:
@@ -2282,7 +2282,7 @@ class DownloaderHelper(_PluginBase):
         获取tr种子
         """
         if not transmission:
-            return None, False
+            return []
         return self.__get_torrents_for_transmission_with_cache(transmission=transmission) if with_cache else self.__get_torrents_for_transmission_without_cache(transmission=transmission)
 
     @cached(cache=TTLCache(maxsize=1, ttl=10))
@@ -2297,7 +2297,7 @@ class DownloaderHelper(_PluginBase):
         获取tr种子
         """
         if not transmission:
-            return None, False
+            return []
         # 需要 isPrivate 字段判断是否是私有种子
         arguments = transmission._trarg.copy()
         is_private_field = "isPrivate"
