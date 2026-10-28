@@ -141,7 +141,7 @@ class DownloaderHelper(_PluginBase):
         self.__tracker_mappings = self.__parse_tracker_mappings(tracker_mappings=tracker_mappings)
         # 解析排除种子标签
         exclude_tags = self.__get_config_item(config_key='exclude_tags')
-        self.__exclude_tags = self.__split_tags(tags=exclude_tags)
+        self.__exclude_tags = set(self.__split_tags(tags=exclude_tags) or [])
         logger.debug(f"插件配置加载完成：{config}")
 
         # 如果需要立即运行一次
@@ -206,6 +206,7 @@ class DownloaderHelper(_PluginBase):
                 return []
         except Exception as e:
             logger.error(f"注册插件公共服务异常: {str(e)}", exc_info=True)
+            return []
 
     def get_form(self) -> Tuple[List[dict], Dict[str, Any]]:
         """
@@ -1162,7 +1163,7 @@ class DownloaderHelper(_PluginBase):
         """
         try:
             logger.info('尝试停止插件服务调度器...')
-            scheduler: BackgroundScheduler = self.__scheduler
+            scheduler: Optional[BackgroundScheduler] = self.__scheduler
             if scheduler:
                 scheduler.remove_all_jobs()
                 if scheduler.running:
@@ -1189,7 +1190,7 @@ class DownloaderHelper(_PluginBase):
         except Exception as e:
             logger.error(f"插件缓存清除异常: {str(e)}", exc_info=True)
 
-    def __fix_config(self, config: dict) -> dict:
+    def __fix_config(self, config: dict) -> Optional[dict]:
         """
         修正配置
         """
@@ -2566,7 +2567,7 @@ class DownloaderHelper(_PluginBase):
                                                             field_count: int) -> list:
         """
         构造仪表板组件种子表体内容
-        :param downloader_id: 下载器ID
+        :param service_info: 下载器服务信息
         :param data: 表格数据
         :param field_count: 字段数量
         """
@@ -2937,7 +2938,7 @@ class DownloaderHelper(_PluginBase):
             logger.error(f'从tr种子中提取值异常: {str(e)}, torrent = {str(torrent.fields)}', exc_info=True)
             return None
 
-    def __get_dashboard_active_torrent_widget_elements(self, service_info: ServiceInfo) -> list:
+    def __get_dashboard_active_torrent_widget_elements(self, service_info: ServiceInfo) -> Optional[list]:
         """
         获取仪表板活动种子组件元素
         """
@@ -3041,7 +3042,7 @@ class DownloaderHelper(_PluginBase):
             self.__ttl_cache[cache_key] = session
         return session
 
-    def __build_mdi_icon_svg_element(self, mdi_icon: str) -> dict:
+    def __build_mdi_icon_svg_element(self, mdi_icon: str) -> Optional[dict]:
         """
         构造 svg mdi 图标元素
         """
@@ -3071,7 +3072,7 @@ class DownloaderHelper(_PluginBase):
             }]
         }
 
-    def __build_dashboard_speed_widget_list_item_element(self, mdi_icon: str, label: str, value: str, is_last: bool = False) -> dict:
+    def __build_dashboard_speed_widget_list_item_element(self, mdi_icon: str, label: str, value: str, is_last: bool = False) -> Optional[dict]:
         """
         构造仪表板实时速率组件列表item元素
         """
@@ -3131,7 +3132,7 @@ class DownloaderHelper(_PluginBase):
             }]
         }
 
-    def __get_dashboard_speed_widget_elements(self, service_info: ServiceInfo) -> list:
+    def __get_dashboard_speed_widget_elements(self, service_info: ServiceInfo) -> Optional[list]:
         """
         获取仪表板实时速率组件元素
         """
