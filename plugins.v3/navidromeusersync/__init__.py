@@ -30,7 +30,7 @@ class NavidromeUserSync(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/NavidromeRadioSource.png"
     # 插件版本
-    plugin_version = "3.1.9"
+    plugin_version = "3.1.10"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -293,9 +293,9 @@ class NavidromeUserSync(_PluginBase):
                                     'label': '分组账户',
                                     'lang': 'yml',
                                     'theme': 'monokai',
-                                    'style': 'height: 20rem',
-                                    'placeholder': 'YML格式内容。支持配置1到N个分组，每个分组下至少配置2个账户，分组下的全部账户间相互同步。\n'
-                                                   '例如：\n'
+                                    'style': 'height: 15rem',
+                                    'placeholder': 'yml格式内容。支持配置1到n个分组，每个分组下至少配置2个账户，一个分组下的全部账户间相互同步。\n\n'
+                                                   '例如：\n\n'
                                                    'groups:\n'
                                                    '  - name: 分组1\n'
                                                    '    accounts:\n'
