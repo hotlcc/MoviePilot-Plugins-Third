@@ -1,11 +1,13 @@
 from typing import Tuple, List, Dict, Any
+
 import requests
-
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
 from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
+# noinspection DuplicatedCode
 class IYUUChannel(CustomChannel):
     """
     爱语飞飞渠道
@@ -72,10 +74,13 @@ class IYUUChannel(CustomChannel):
         token = self.get_config_item(config_key="token")
         return f"https://iyuu.cn/{token}.send"
 
-    def __build_params(self, title: str, text: str) -> dict:
+    # noinspection SpellCheckingInspection
+    @classmethod
+    def __build_params(cls, title: str, text: str, ext_info: dict = None) -> dict:
         """
         构造请求参数
         """
+        ext_info = ext_info or {}
         # params
         params = {
             "text": title
@@ -85,13 +90,14 @@ class IYUUChannel(CustomChannel):
         params["desp"] = desp
         return params
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not title:
@@ -100,7 +106,7 @@ class IYUUChannel(CustomChannel):
         if not self.__check_config():
             return False
         send_url = self.__build_url()
-        params = self.__build_params(title=title, text=text)
+        params = self.__build_params(title=title, text=text, ext_info=ext_info)
         res = requests.post(url=send_url, params=params)
         res_json = res.json() or {}
         if res.ok or res_json:

@@ -1,9 +1,8 @@
+from app.log import logger
 from mako.template import Template
 
-from app.log import logger
 
-
-class TemplateUtil():
+class TemplateUtil:
     """
     模板工具
     """

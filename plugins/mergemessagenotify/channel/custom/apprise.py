@@ -1,9 +1,10 @@
 from typing import Tuple, List, Dict, Any
-import apprise
 
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
 from app.log import logger
+from app.schemas.types import NotificationType
+
+import apprise
+from . import CustomChannel
 
 
 class AppriseChannel(CustomChannel):
@@ -79,6 +80,7 @@ class AppriseChannel(CustomChannel):
         service_urls: str = self.get_config_item(config_key="service_urls") or ""
         return [line.strip() for line in service_urls.splitlines() if line and line.strip()]
 
+    # noinspection PyUnresolvedReferences
     def __build_apprise(self) -> apprise.Apprise:
         """
         构造apprise
@@ -92,11 +94,12 @@ class AppriseChannel(CustomChannel):
         return app
 
     # noinspection DuplicatedCode
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
         if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")

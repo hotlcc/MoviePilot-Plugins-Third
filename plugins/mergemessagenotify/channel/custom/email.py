@@ -1,16 +1,17 @@
-from email.mime.text import MIMEText
+import smtplib
+from datetime import datetime
 from email.header import Header
+from email.mime.text import MIMEText
 from email.utils import formataddr
 from enum import Enum
-import smtplib
-from typing import Tuple, List, Dict, Any, Union
-from datetime import datetime
-import pytz
+from typing import Tuple, List, Dict, Any, Optional
 
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
+import pytz
 from app.core.config import settings
 from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
 class SmtpEncryptType(Enum):
@@ -22,6 +23,7 @@ class SmtpEncryptType(Enum):
     TLS = "TLS加密"
 
 
+# noinspection DuplicatedCode,SpellCheckingInspection
 class EmailChannel(CustomChannel):
     """
     邮件渠道
@@ -196,7 +198,7 @@ class EmailChannel(CustomChannel):
             return False
         return True
 
-    def __build_message(self, title: str, text: str, to_addrs: List[str], ext_info: dict = {}) -> MIMEText:
+    def __build_message(self, title: str, text: str, to_addrs: List[str], ext_info: dict = None) -> MIMEText:
         """
         构造消息对象
         """
@@ -245,13 +247,15 @@ class EmailChannel(CustomChannel):
         smtp.login(user=username, password=password)
         return smtp
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    # noinspection SpellCheckingInspection,PyBroadException,PyShadowingBuiltins
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> Optional[bool]:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not text:

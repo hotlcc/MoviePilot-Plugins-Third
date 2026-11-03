@@ -1,16 +1,13 @@
 from typing import Tuple, List, Dict, Any
-from urllib.parse import urlencode, quote_plus
+
 import requests
-import time
-import hmac
-import hashlib
-import base64
-
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
 from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
+# noinspection DuplicatedCode
 class QiyeWeixinBotChannel(CustomChannel):
     """
     企业微信机器人渠道
@@ -121,7 +118,8 @@ class QiyeWeixinBotChannel(CustomChannel):
         key = self.get_config_item(config_key="key")
         return f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={key}"
 
-    def __build_message_content(self, title: str, text: str, ext_info: dict = {}) -> Tuple[str, dict]:
+    @classmethod
+    def __build_message_content(cls, title: str, text: str, ext_info: dict = None) -> Tuple[str, str]:
         """
         构造消息内容
         """
@@ -140,10 +138,12 @@ class QiyeWeixinBotChannel(CustomChannel):
             markdown += f"![]({image})\n\n"
         return "markdown", markdown
 
-    def __build_message(self, title: str, text: str, ext_info: dict = {}) -> Tuple[str, dict]:
+    # noinspection SpellCheckingInspection
+    def __build_message(self, title: str, text: str, ext_info: dict = None) -> Tuple[str, dict]:
         """
         构造消息
         """
+        ext_info = ext_info or {}
         msgtype, content = self.__build_message_content(title=title, text=text, ext_info=ext_info)
         mentioned_mobile_list = self.__split_multstr(raw_str=self.get_config_item(config_key="mentioned_mobile_list"))
         mentioned_list = self.__split_multstr(raw_str=self.get_config_item(config_key="mentioned_list"))
@@ -155,6 +155,7 @@ class QiyeWeixinBotChannel(CustomChannel):
             "mentioned_list": mentioned_list
         }
 
+    # noinspection SpellCheckingInspection
     @classmethod
     def __split_multstr(cls, raw_str: str) -> List[str]:
         """
@@ -162,35 +163,39 @@ class QiyeWeixinBotChannel(CustomChannel):
         """
         return list(set([item.strip() for item in raw_str.split(",") if item and item.strip()])) if raw_str else []
 
-    def __build_json(self, title: str, text: str, ext_info: dict = {}) -> dict:
+    # noinspection SpellCheckingInspection
+    def __build_body(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
-        构造请求json
+        构造请求body
         """
+        ext_info = ext_info or {}
         msgtype, msg = self.__build_message(title=title, text=text, ext_info=ext_info)
-        # json
-        json = {
+        # body
+        body = {
             "msgtype": msgtype,
             msgtype: msg
         }
-        return json
+        return body
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    # noinspection PyShadowingBuiltins
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or ext_info
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not text:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息内容为空")
             return False
         if not self.__check_config():
-            return
+            return False
         send_url = self.__build_url()
-        json = self.__build_json(title=title, text=text, ext_info=ext_info)
-        res = requests.post(url=send_url, json=json)
+        body = self.__build_body(title=title, text=text, ext_info=ext_info)
+        res = requests.post(url=send_url, json=body)
         res_json = res.json() or {}
         if res.ok or res_json:
             code = res_json.get("errcode")

@@ -1,11 +1,13 @@
 from typing import Tuple, List, Dict, Any
+
 import requests
-
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
 from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
+# noinspection DuplicatedCode
 class ChanifyChannel(CustomChannel):
     """
     Chanify渠道
@@ -85,34 +87,36 @@ class ChanifyChannel(CustomChannel):
         token = self.get_config_item(config_key="token")
         return f"https://api.chanify.net/v1/sender/{token}"
 
-    def __build_json(self, title: str, text: str) -> dict:
+    def __build_body(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
-        构造请求json
+        构造请求body
         """
-        # json
-        json = {
+        ext_info = ext_info or {}
+        # body
+        body = {
             "title": title,
             "text": text,
         }
         # sound
         if self.get_config_item(config_key="sound"):
-            json["sound"] = 1
-        return json
+            body["sound"] = 1
+        return body
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not self.__check_config():
             return False
         send_url = self.__build_url()
-        json = self.__build_json(title=title, text=text)
-        res = requests.post(url=send_url, json=json)
+        body = self.__build_body(title=title, text=text, ext_info=ext_info)
+        res = requests.post(url=send_url, json=body)
         res_json = res.json() or {}
         if res.ok or res_json:
             code = res_json.get("res")

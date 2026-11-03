@@ -1,13 +1,14 @@
 from typing import Tuple, List, Dict, Any
-from urllib.parse import urlencode
+
 import requests
-
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
-from app.log import logger
 from app.core.config import settings
+from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
+# noinspection HttpUrlsUsage,DuplicatedCode
 class PushDeerChannel(CustomChannel):
     """
     PushDeer渠道 http://www.pushdeer.com
@@ -113,13 +114,14 @@ class PushDeerChannel(CustomChannel):
         server_url = server_url.rstrip("/")
         return f"{server_url}/message/push"
 
-    def __build_json(self, title: str, text: str, ext_info: dict = {}) -> dict:
+    # noinspection SpellCheckingInspection
+    def __build_body(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
-        构造请求json
+        构造请求body
         """
         ext_info = ext_info or {}
-        # json
-        json = {
+        # body
+        body = {
             "pushkey": self.get_config_item(config_key="push_key"),
             "text": title,
             "type": "markdown"
@@ -129,16 +131,17 @@ class PushDeerChannel(CustomChannel):
         image = ext_info.get("image")
         if image:
             desp += f"\n\n![]({image})"
-        json["desp"] = desp
-        return json
+        body["desp"] = desp
+        return body
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not title:
@@ -147,9 +150,9 @@ class PushDeerChannel(CustomChannel):
         if not self.__check_config():
             return False
         send_url = self.__build_url()
-        json = self.__build_json(title=title, text=text, ext_info=ext_info)
+        body = self.__build_body(title=title, text=text, ext_info=ext_info)
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
-        res = requests.post(url=send_url, json=json, proxies=proxies)
+        res = requests.post(url=send_url, json=body, proxies=proxies)
         res_json = res.json() or {}
         if res.ok or res_json:
             code = res_json.get("code")

@@ -1,16 +1,17 @@
-from typing import Tuple, List, Dict, Any
-from urllib.parse import urlencode
-import requests
-import time
-import hmac
-import hashlib
 import base64
+import hashlib
+import hmac
+import time
+from typing import Tuple, List, Dict, Any
 
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
+import requests
 from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
+# noinspection SpellCheckingInspection,DuplicatedCode
 class FeishuBotChannel(CustomChannel):
     """
     飞书机器人渠道 https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot
@@ -149,7 +150,7 @@ class FeishuBotChannel(CustomChannel):
         """
         return cls.__build_text_at_user(user_id="all", user_name="所有人")
 
-    def __build_message(self, title: str, text: str, ext_info: dict = {}) -> Tuple[str, dict]:
+    def __build_message(self, title: str, text: str, ext_info: dict = None) -> Tuple[str, dict]:
         """
         构造消息
         """
@@ -208,13 +209,14 @@ class FeishuBotChannel(CustomChannel):
         """
         return list(set([item.strip() for item in raw_str.split(",") if item and item.strip()])) if raw_str else []
 
-    def __build_json(self, title: str, text: str, ext_info: dict = {}) -> dict:
+    def __build_body(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
-        构造请求json
+        构造请求body
         """
+        ext_info = ext_info or {}
         msgtype, msg = self.__build_message(title=title, text=text, ext_info=ext_info)
-        # json
-        json = {
+        # body
+        body = {
             "msg_type": msgtype,
             "content": msg
         }
@@ -222,17 +224,18 @@ class FeishuBotChannel(CustomChannel):
         secret = self.get_config_item(config_key="secret")
         if secret:
             timestamp = str(round(time.time()))
-            json["timestamp"] = timestamp
-            json["sign"] = self.__sign(timestamp=timestamp, secret=secret)
-        return json
+            body["timestamp"] = timestamp
+            body["sign"] = self.__sign(timestamp=timestamp, secret=secret)
+        return body
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not text:
@@ -241,8 +244,8 @@ class FeishuBotChannel(CustomChannel):
         if not self.__check_config():
             return False
         send_url = self.__build_url()
-        json = self.__build_json(title=title, text=text, ext_info=ext_info)
-        res = requests.post(url=send_url, json=json)
+        body = self.__build_body(title=title, text=text, ext_info=ext_info)
+        res = requests.post(url=send_url, json=body)
         res_json = res.json() or {}
         if res.ok or res_json:
             code = res_json.get("code")

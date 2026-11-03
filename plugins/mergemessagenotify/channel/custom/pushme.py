@@ -1,11 +1,12 @@
-from typing import Tuple, List, Dict, Any
 from enum import Enum
-import requests
+from typing import Tuple, List, Dict, Any
 
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
-from app.log import logger
+import requests
 from app.core.config import settings
+from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
 class ApiKeyType(Enum):
@@ -30,6 +31,7 @@ class MessageTopic(Enum):
         self.desc = desc
 
 
+# noinspection DuplicatedCode
 class PushMeChannel(CustomChannel):
     """
     PushMe渠道 https://push.i-i.me/
@@ -178,10 +180,11 @@ class PushMeChannel(CustomChannel):
             return False
         return True
 
-    def __build_data(self, title: str, text: str, ext_info: dict = {}) -> dict:
+    def __build_data(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
         构造表单数据
         """
+        ext_info = ext_info or {}
         data = {}
         # 密钥
         key_type = self.get_config_item(config_key="key_type")
@@ -211,13 +214,14 @@ class PushMeChannel(CustomChannel):
         data["content"] = content
         return data
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not self.__check_config():

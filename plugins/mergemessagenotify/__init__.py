@@ -1,15 +1,17 @@
-from typing import OrderedDict, Dict, Any, List, Tuple, Type
+from typing import OrderedDict, Dict, Any, List, Tuple, Type, Optional
 
 from app.core.event import eventmanager, Event
 from app.helper.module import ModuleHelper
 from app.log import logger
 from app.plugins import _PluginBase
-from app.plugins.mergemessagenotify.channel import Channel
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.plugins.mergemessagenotify.module import ChannelStrategy
 from app.schemas.types import EventType, NotificationType
 
+from .channel import Channel
+from .channel.custom import CustomChannel
+from .module import ChannelStrategy
 
+
+# noinspection SpellCheckingInspection
 class MergeMessageNotify(_PluginBase):
     # 插件名称
     plugin_name = "聚合消息通知"
@@ -211,7 +213,7 @@ class MergeMessageNotify(_PluginBase):
         except Exception as e:
             logger.error(f"插件服务停止异常: {str(e)}", exc_info=True)
 
-    def __fix_config(self, config: dict) -> dict:
+    def __fix_config(self, config: dict) -> Optional[dict]:
         """
         修正配置
         """
@@ -336,7 +338,8 @@ class MergeMessageNotify(_PluginBase):
             except Exception as e:
                 logger.error(f"注册组件 - {comp_type.__name__} - 异常: {str(e)}", exc_info=True)
 
-    def __wrapper_comp_form_model(self, comp_key: str, model: str) -> str:
+    @classmethod
+    def __wrapper_comp_form_model(cls, comp_key: str, model: str) -> Optional[str]:
         """
         包装组件表单model
         """
@@ -344,7 +347,7 @@ class MergeMessageNotify(_PluginBase):
             return None
         return f"{comp_key}.{model}"
 
-    def __get_comp_form_data(self, comp_obj: Channel) -> Dict[str, Any]:
+    def __get_comp_form_data(self, comp_obj: Channel) -> Optional[Dict[str, Any]]:
         """
         获取组件的表单数据
         """
@@ -437,7 +440,7 @@ class MergeMessageNotify(_PluginBase):
             } for key, obj in self.__comp_objs.items() if key and obj]
         }
 
-    def __get_comp_form_elements(self, comp_obj: Channel) -> List[dict]:
+    def __get_comp_form_elements(self, comp_obj: Channel) -> Optional[List[dict]]:
         """
         获取组件的表单元素
         """

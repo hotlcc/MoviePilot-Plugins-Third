@@ -1,21 +1,22 @@
 import base64
 import json as lib_json
+import uuid
 from enum import Enum
 from typing import Tuple, List, Dict, Any, Optional
-import uuid
 
 import requests
+from app.core.config import settings
+from app.log import logger
+from app.schemas.types import NotificationType
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding as lib_padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from app.core.config import settings
-from app.log import logger
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
+from . import CustomChannel
 
 
+# noinspection PyRedundantParentheses,SpellCheckingInspection
 class Sound(Enum):
     """
     铃声枚举
@@ -61,6 +62,7 @@ class Sound(Enum):
         self.second = second
 
 
+# noinspection DuplicatedCode,SpellCheckingInspection
 class BarkChannel(CustomChannel):
     """
     Bark渠道
@@ -487,59 +489,61 @@ class BarkChannel(CustomChannel):
         push_key = self.get_config_item(config_key="push_key")
         return f"{server_url}/{push_key}"
 
-    def __build_json(self, title: str, text: str, ext_info: dict = {}) -> dict:
+    # noinspection PyPep8Naming
+    def __build_body(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
-        构造请求json
+        构造请求body
         """
         ext_info = ext_info or {}
 
-        # json
+        # body
         # 标题和内容
-        json = {
+        body = {
             "title": title,
             "body": text or title
         }
         # sound
         sound = self.get_config_item(config_key="sound")
         if sound:
-            json["sound"] = sound
+            body["sound"] = sound
         # icon
         image = ext_info.get("image")
         if image:
-            json["icon"] = image
+            body["icon"] = image
         # group
         group = self.get_config_item(config_key="group")
         if group:
-            json["group"] = group
+            body["group"] = group
         # url
         link = ext_info.get("link")
         if link:
-            json["url"] = link
+            body["url"] = link
         # level
         level = self.get_config_item(config_key="level")
         if level:
-            json["level"] = level
+            body["level"] = level
         # isArchive
         isArchive = self.get_config_item(config_key="isArchive")
         if isArchive:
-            json["isArchive"] = 1
+            body["isArchive"] = 1
         # autoCopy
         autoCopy = self.get_config_item(config_key="autoCopy")
         if autoCopy:
-            json["autoCopy"] = 1
+            body["autoCopy"] = 1
 
         # 更多参数
         more_json: str = self.get_config_item(config_key="more_json")
         if more_json:
             try:
                 more_json_obj = lib_json.loads(more_json)
-                json.update(more_json_obj)
+                body.update(more_json_obj)
             except Exception as e:
                 logger.error(f"更多参数解析异常: {str(e)}", exc_info=True)
 
-        return json
+        return body
 
-    def __cipher_text(self, plaintext: str,
+    @classmethod
+    def __cipher_text(cls, plaintext: str,
                       algorithm: str, mode: str, padding: str, key: str) -> Tuple[Optional[str], Optional[str]]:
         """
         加密文本
@@ -587,54 +591,56 @@ class BarkChannel(CustomChannel):
         except Exception as e:
             raise ValueError(f"AES加密失败: {str(e)}")
 
-    def __cipher_json(self, json: dict) -> tuple[str, str]:
+    def __cipher_body(self, body: dict) -> tuple[str, str]:
         """
-        加密json
+        加密body
         """
         if not self.__check_cipher_config():
             raise ValueError("加密配置有误")
 
         return self.__cipher_text(
-            plaintext=lib_json.dumps(json or {}),
+            plaintext=lib_json.dumps(body or {}),
             algorithm=self.get_config_item(config_key="cipher_algorithm"),
             mode=self.get_config_item(config_key="cipher_mode"),
             padding=self.get_config_item(config_key="cipher_padding"),
             key=self.get_config_item(config_key="cipher_key"),
         )
 
-    def __build_req_data(self, title: str, text: str, ext_info: dict = {}) -> dict:
+    def __build_req_body(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
         生成请求数据
         """
-        json = self.__build_json(title=title, text=text, ext_info=ext_info)
+        ext_info = ext_info or {}
+        body = self.__build_body(title=title, text=text, ext_info=ext_info)
         if not self.get_config_item(config_key="cipher_enable"):
-            return json
+            return body
         else:
             try:
-                ciphertext, cipher_iv = self.__cipher_json(json)
+                ciphertext, cipher_iv = self.__cipher_body(body=body)
                 return {
                     "ciphertext": ciphertext,
                     "iv": cipher_iv,
                 }
             except Exception as e:
                 logger.error(f"加密异常，已降级为非加密方式: {str(e)}", exc_info=True)
-                return json
+                return body
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not self.__check_config():
             return False
         send_url = self.__build_url()
-        json = self.__build_req_data(title=title, text=text, ext_info=ext_info)
+        body = self.__build_req_body(title=title, text=text, ext_info=ext_info)
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
-        res = requests.post(url=send_url, json=json, proxies=proxies)
+        res = requests.post(url=send_url, json=body, proxies=proxies)
         res_json = res.json() or {}
         if res.ok or res_json:
             code = res_json.get("code")

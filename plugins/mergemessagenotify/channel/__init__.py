@@ -1,6 +1,6 @@
-from abc import abstractmethod, ABC
 import inspect
 import os
+from abc import abstractmethod, ABC
 from typing import Dict, Any, Tuple, List
 
 from app.plugins import _PluginBase
@@ -163,7 +163,7 @@ class Channel(ABC):
         pass
 
     @abstractmethod
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """

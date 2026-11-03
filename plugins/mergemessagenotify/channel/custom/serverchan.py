@@ -1,10 +1,11 @@
-from typing import Tuple, List, Dict, Any
 from enum import Enum
-import requests
+from typing import Tuple, List, Dict, Any
 
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
+import requests
 from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
 class SendChannel(Enum):
@@ -28,6 +29,7 @@ class SendChannel(Enum):
         self.name_ = name_
 
 
+# noinspection DuplicatedCode
 class ServerChanChannel(CustomChannel):
     """
     Server酱渠道 https://sct.ftqq.com
@@ -128,13 +130,14 @@ class ServerChanChannel(CustomChannel):
         send_key = self.get_config_item(config_key="send_key")
         return f"https://sctapi.ftqq.com/{send_key}.send"
 
-    def __build_json(self, title: str, text: str, ext_info: dict = {}) -> dict:
+    # noinspection SpellCheckingInspection
+    def __build_body(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
         构造请求json
         """
         ext_info = ext_info or {}
-        # json
-        json = {
+        # body
+        body = {
             "title": title,
             "noip": self.get_config_item(config_key="noip") or False
         }
@@ -143,33 +146,34 @@ class ServerChanChannel(CustomChannel):
         image = ext_info.get("image")
         if image:
             desp += f"\n\n![]({image})"
-        json["desp"] = desp
+        body["desp"] = desp
         # channel
         channels = self.get_config_item(config_key="channel")
         if channels:
             channels = channels[0:2]
             channels = [str(channel) for channel in channels]
             channel = "|".join(channels)
-            json["channel"] = channel
-        return json
+            body["channel"] = channel
+        return body
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not title:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息标题为空")
             return False
         if not self.__check_config():
-            return
+            return False
         send_url = self.__build_url()
-        json = self.__build_json(title=title, text=text, ext_info=ext_info)
-        res = requests.post(url=send_url, json=json)
+        body = self.__build_body(title=title, text=text, ext_info=ext_info)
+        res = requests.post(url=send_url, json=body)
         res_json = res.json() or {}
         if res.ok or res_json:
             code = res_json.get("code")

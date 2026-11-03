@@ -1,16 +1,18 @@
+import base64
+import hashlib
+import hmac
+import time
 from typing import Tuple, List, Dict, Any
 from urllib.parse import urlencode, quote_plus
+
 import requests
-import time
-import hmac
-import hashlib
-import base64
-
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
 from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
+# noinspection DuplicatedCode
 class DingtalkRobotChannel(CustomChannel):
     """
     钉钉机器人渠道 https://open.dingtalk.com/document/orgapp/custom-robots-send-group-messages
@@ -165,7 +167,8 @@ class DingtalkRobotChannel(CustomChannel):
         query = self.__build_query()
         return f"https://oapi.dingtalk.com/robot/send?{query}"
 
-    def __build_message(self, title: str, text: str, ext_info: dict = {}) -> Tuple[str, dict]:
+    @classmethod
+    def __build_message(cls, title: str, text: str, ext_info: dict = None) -> Tuple[str, dict]:
         """
         构造消息
         """
@@ -173,7 +176,7 @@ class DingtalkRobotChannel(CustomChannel):
         link = ext_info.get("link")
         image = ext_info.get("image")
         # 链接类型
-        if (link and image):
+        if link and image:
             return "link", {
                 "title": title,
                 "text": text,
@@ -205,13 +208,15 @@ class DingtalkRobotChannel(CustomChannel):
         """
         return list(set([item.strip() for item in raw_str.split(",") if item and item.strip()])) if raw_str else []
 
-    def __build_json(self, title: str, text: str, ext_info: dict = {}) -> dict:
+    # noinspection SpellCheckingInspection
+    def __build_body(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
-        构造请求json
+        构造请求body
         """
+        ext_info = ext_info or {}
         msgtype, msg = self.__build_message(title=title, text=text, ext_info=ext_info)
-        # json
-        json = {
+        # body
+        body = {
             "msgtype": msgtype,
             msgtype: msg,
             "at": {
@@ -220,15 +225,16 @@ class DingtalkRobotChannel(CustomChannel):
                 "isAtAll": True if self.get_config_item(config_key="isAtAll") else False,
             }
         }
-        return json
+        return body
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not text:
@@ -237,8 +243,8 @@ class DingtalkRobotChannel(CustomChannel):
         if not self.__check_config():
             return False
         send_url = self.__build_url()
-        json = self.__build_json(title=title, text=text, ext_info=ext_info)
-        res = requests.post(url=send_url, json=json)
+        body = self.__build_body(title=title, text=text, ext_info=ext_info)
+        res = requests.post(url=send_url, json=body)
         res_json = res.json() or {}
         if res.ok or res_json:
             code = res_json.get("errcode")

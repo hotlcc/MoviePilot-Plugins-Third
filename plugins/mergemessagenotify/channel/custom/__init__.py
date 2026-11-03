@@ -1,12 +1,14 @@
+from abc import ABC
 from urllib.parse import quote
 
 from app.log import logger
-from app.plugins.mergemessagenotify.channel import Channel
-from app.plugins.mergemessagenotify.util import TemplateUtil
 from app.schemas.types import NotificationType
 
+from .. import Channel
+from ...util import TemplateUtil
 
-class CustomChannel(Channel):
+
+class CustomChannel(ABC, Channel):
     """
     自定义消息通知渠道基类
     """
@@ -18,7 +20,8 @@ class CustomChannel(Channel):
     # 组件顺序
     comp_order: int = 2
 
-    def __build_test_once_switch_element(self) -> dict:
+    @classmethod
+    def __build_test_once_switch_element(cls) -> dict:
         """
         构造测试一次开关元素
         """

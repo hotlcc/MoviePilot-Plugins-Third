@@ -4,11 +4,11 @@ from enum import Enum
 from typing import Tuple, List, Dict, Any, Optional
 
 import requests
-
 from app.core.config import settings
 from app.log import logger
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
 from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
 # noinspection SpellCheckingInspection
@@ -62,6 +62,7 @@ class Priority(Enum):
         self.title = title
 
 
+# noinspection DuplicatedCode
 class PushoverChannel(CustomChannel):
     """
     Pushover渠道
@@ -222,50 +223,52 @@ class PushoverChannel(CustomChannel):
         server_url = server_url.rstrip("/")
         return f"{server_url}/1/messages.json"
 
-    def __build_json(self, title: str, text: str, ext_info: dict = None) -> dict:
+    def __build_body(self, title: str, text: str, ext_info: dict = None) -> dict:
         """
-        构造请求json
+        构造请求body
         """
         ext_info = ext_info or {}
 
-        # json
-        json = {
+        # body
+        body = {
             "user": self.get_config_item(config_key="user_key"),
             "token": self.get_config_item(config_key="api_token"),
         }
         # 标题和内容
-        json.update({
+        body.update({
             "title": title,
             "message": text or title
         })
         # sound
         sound = self.get_config_item(config_key="sound")
         if sound:
-            json["sound"] = sound
+            body["sound"] = sound
         # priority
         priority = self.get_config_item(config_key="priority")
         if priority is not None:
-            json["priority"] = priority
+            body["priority"] = priority
             if priority == Priority.Emergency.code:
-                json.update({
+                body.update({
                     "retry": 60,
                     "expire": 1800,
                 })
         # image
         image = ext_info.get("image")
         if image:
-            json["attachment_base64"] = self.__download_image_to_base64(image_url=image)
+            body["attachment_base64"] = self.__download_image_to_base64(image_url=image)
         # url
         link = ext_info.get("link")
         if link:
-            json.update({
+            body.update({
                 "url": link,
                 "url_title": link,
             })
 
-        return json
+        return body
 
-    def __download_image_to_base64(self, image_url) -> Optional[str]:
+    # noinspection PyBroadException
+    @classmethod
+    def __download_image_to_base64(cls, image_url) -> Optional[str]:
         try:
             res = requests.get(url=image_url, stream=True, timeout=5)
             res.raise_for_status()
@@ -279,14 +282,15 @@ class PushoverChannel(CustomChannel):
         发送消息
         """
         type_str = type.value if type else None
+        ext_info = ext_info or {}
         enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not self.__check_config():
             return False
         url = self.__build_url()
-        json = self.__build_json(title=title, text=text, ext_info=ext_info)
+        json = self.__build_body(title=title, text=text, ext_info=ext_info)
         proxies = settings.PROXY if self.get_config_item(config_key="enable_proxy") else None
         res = requests.post(url=url, json=json, proxies=proxies)
         res_json: dict = res.json() or {}
