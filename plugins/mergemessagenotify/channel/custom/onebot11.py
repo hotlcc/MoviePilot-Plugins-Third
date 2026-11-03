@@ -1,12 +1,14 @@
-from typing import Dict, Any, Tuple, List, Union
+from typing import Dict, Any, Tuple, List, Union, Optional
+
 import requests
-
-from app.plugins.mergemessagenotify.channel.custom import CustomChannel
-from app.schemas.types import NotificationType
-from app.log import logger
 from app.core.config import settings
+from app.log import logger
+from app.schemas.types import NotificationType
+
+from . import CustomChannel
 
 
+# noinspection SpellCheckingInspection,PyShadowingBuiltins
 class OneBot11Channel(CustomChannel):
     """
     OneBot-11 通用聊天机器人规范渠道 https://github.com/botuniverse/onebot-11
@@ -89,6 +91,22 @@ class OneBot11Channel(CustomChannel):
                         'label': '目标群组',
                         'placeholder': '1234567,7654321',
                         'hint': '选填。对方群组号，多个用英文逗号,分隔；与【目标用户】不允许同时为空。'
+                    }
+                }]
+            }, {
+                'component': 'VCol',
+                'props': {
+                    'cols': 12,
+                    'xxl': 4, 'xl': 4, 'lg': 4, 'md': 4, 'sm': 6, 'xs': 12
+                },
+                'content': [{
+                    'component': 'VTextField',
+                    'props': {
+                        'model': 'access_token',
+                        'label': 'Access Token',
+                        'type': 'password',
+                        'placeholder': 'access_token',
+                        'hint': '选填。不含Bearer前缀。'
                     }
                 }]
             }, {
@@ -217,33 +235,37 @@ class OneBot11Channel(CustomChannel):
         """
         return list(set([item.strip() for item in raw_str.split(",") if item and item.strip()])) if raw_str else []
 
-    def __build_json(self, user_id: Union[int, str],
+    def __build_body(self, user_id: Union[int, str],
                            group_id: Union[int, str],
                            message: str) -> dict:
         """
-        构造请求json
+        构造请求body
         """
-        json = {
+        body = {
             "message": message
         }
         if user_id:
-            json["user_id"] = user_id
+            body["user_id"] = user_id
         if group_id:
-            json["group_id"] = group_id
-        return json
+            body["group_id"] = group_id
+        return body
 
     def __send_msg(self, url: str,
-                         user_id: Union[int, str],
-                         group_id: Union[int, str],
-                         message: str,
-                         type: NotificationType = None,
-                         proxies: bool = False) -> bool:
+                   access_token: Optional[str],
+                   user_id: Optional[Union[int, str]],
+                   group_id: Optional[Union[int, str]],
+                   message: str,
+                   type: Optional[NotificationType],
+                   proxies: Optional[Dict[str, str]]) -> bool:
         """
         发送OneBot-11规范消息
         """
         type_str = type.value if type else None
-        json = self.__build_json(user_id=user_id, group_id=group_id, message=message)
-        res = requests.post(url=url, json=json, proxies=proxies)
+        headers = {}
+        if access_token:
+            headers.update({"Authorization": f"Bearer {access_token}"})
+        body = self.__build_body(user_id=user_id, group_id=group_id, message=message)
+        res = requests.post(url=url, headers=headers, json=body, proxies=proxies)
         res_json = res.json() or {}
         if res.ok:
             code = res_json.get("retcode")
@@ -258,13 +280,14 @@ class OneBot11Channel(CustomChannel):
             logger.warn(f"发送消息失败: channel = {self.comp_name}, type = {type_str}, user_id = {user_id}, group_id = {group_id}, status_code = {res.status_code}, reason = {res.reason}")
             return False
 
-    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = {}) -> bool:
+    def send_message(self, title: str, text: str, type: NotificationType = None, ext_info: dict = None) -> bool:
         """
         发送消息
         """
         type_str = type.value if type else None
-        enable_notify_types: List[str] = self.get_config_item("enable_notify_types")
-        if (type and enable_notify_types and type.name not in enable_notify_types):
+        ext_info = ext_info or {}
+        enable_notify_types: List[str] = self.get_config_item("enable_notify_types") or []
+        if type and enable_notify_types and type.name not in enable_notify_types:
             logger.warn(f"发送消息中止: channel = {self.comp_name}, type = {type_str}, 消息类型不受支持")
             return False
         if not self.__check_config():
@@ -274,6 +297,8 @@ class OneBot11Channel(CustomChannel):
         logger.info(f">>> 全部模板变量: {template_variables}")
         # 发送url
         send_url = self.__build_url()
+        # access_token
+        access_token = self.get_config_item(config_key="access_token")
         # 消息模板
         message_template = self.get_config_item(config_key="message_template")
         # 消息
@@ -287,7 +312,7 @@ class OneBot11Channel(CustomChannel):
         user_ids = self.get_config_item("user_ids")
         user_ids = self.__split_multstr(raw_str=user_ids)
         for user_id in user_ids:
-            success = self.__send_msg(url=send_url, user_id=user_id, group_id=None, message=message, type=type, proxies=proxies)
+            success = self.__send_msg(url=send_url, access_token=access_token, user_id=user_id, group_id=None, message=message, type=type, proxies=proxies)
             if success:
                 success_count += 1
             else:
@@ -296,7 +321,7 @@ class OneBot11Channel(CustomChannel):
         group_ids = self.get_config_item("group_ids")
         group_ids = self.__split_multstr(raw_str=group_ids)
         for group_id in group_ids:
-            success = self.__send_msg(url=send_url, user_id=None, group_id=group_id, message=message, type=type, proxies=proxies)
+            success = self.__send_msg(url=send_url, access_token=access_token, user_id=None, group_id=group_id, message=message, type=type, proxies=proxies)
             if success:
                 success_count += 1
             else:
