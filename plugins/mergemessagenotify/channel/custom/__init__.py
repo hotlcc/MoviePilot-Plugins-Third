@@ -1,4 +1,3 @@
-from abc import ABC
 from urllib.parse import quote
 
 from app.log import logger
@@ -8,7 +7,8 @@ from .. import Channel
 from ...util import TemplateUtil
 
 
-class CustomChannel(ABC, Channel):
+# noinspection PyAbstractClass
+class CustomChannel(Channel):
     """
     自定义消息通知渠道基类
     """
