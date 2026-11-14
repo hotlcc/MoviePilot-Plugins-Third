@@ -1,3 +1,4 @@
+import fnmatch
 import os
 import re
 import urllib
@@ -35,7 +36,7 @@ class DownloaderHelper(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/hotlcc/MoviePilot-Plugins-Third/main/icons/DownloaderHelper.png"
     # 插件版本
-    plugin_version = "4.0.8"
+    plugin_version = "4.0.9"
     # 插件作者
     plugin_author = "hotlcc"
     # 作者主页
@@ -1531,7 +1532,20 @@ class DownloaderHelper(_PluginBase):
         return site_tag, delete_suggest
 
     @classmethod
-    def __check_path_exists_file(cls, path: str) -> bool:
+    def __fnmatch_any(cls, name: str, pats: List[str]) -> bool:
+        if not name or not pats:
+            return False
+        for pat in pats:
+            if not pat:
+                continue
+            if fnmatch.fnmatch(name=name, pat=pat):
+                return True
+        return False
+
+    @classmethod
+    def __check_path_exists_file(cls, path: str,
+                                 ignore_file_pats: List[str] = None,
+                                 ignore_dir_pats: List[str] = None) -> bool:
         """
         判断路径下是否存在文件
         """
@@ -1539,9 +1553,16 @@ class DownloaderHelper(_PluginBase):
             return False
         if not os.path.exists(path):
             return False
+
+        ignore_file_pats = ignore_file_pats or ["*.!qB"] or []
+        ignore_dir_pats = ignore_dir_pats or [".unwanted"] or []
+        path_name = os.path.basename(path)
+
         if os.path.isfile(path):
-            return True
+            return not cls.__fnmatch_any(name=path_name, pats=ignore_file_pats)
         elif os.path.isdir(path):
+            if cls.__fnmatch_any(name=path_name, pats=ignore_dir_pats):
+                return False
             with os.scandir(path) as entries:
                 for entry in entries:
                     if cls.__check_path_exists_file(path=entry.path):
